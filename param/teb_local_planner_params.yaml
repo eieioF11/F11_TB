@@ -1,0 +1,35 @@
+TebLocalPlannerROS:
+
+
+
+  # Trajectory
+  teb_autosize: True
+  dt_ref: 0.2
+  dt_hysteresis: 0.1
+  global_plan_overwrite_orientation: True
+  max_global_plan_lookahead_dist: 3.0
+  feasibility_check_no_poses: 5
+
+# Robot Configuration Parameters
+  max_vel_x: 0.22
+  min_vel_x: -0.22
+
+  max_vel_y: 0.0
+  min_vel_y: 0.0
+
+# The velocity when robot is moving in a straight line
+  max_vel_trans:  0.22
+  min_vel_trans:  0.11
+
+  max_vel_theta: 2.75
+  min_vel_theta: 1.37
+
+  acc_lim_x: 2.5
+  acc_lim_y: 0.0
+  acc_lim_theta: 3.2
+  footprint_model:
+    type: "polygon"
+    vertices: [[-0.205, -0.155], [-0.205, 0.155], [0.077, 0.155], [0.077, -0.155]]
+
+  # GoalTolerance
+  xy_goal_tolerance: 0.05
