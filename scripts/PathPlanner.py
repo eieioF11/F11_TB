@@ -11,24 +11,33 @@ from nav_msgs.msg import Path
 from geometry_msgs.msg import PoseStamped
 from std_msgs.msg import Header
 from nav_msgs.msg import Odometry
+from move_base_msgs.msg import MoveBaseAction, MoveBaseGoal
+from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion
+import tf2_ros
 import matplotlib.pyplot as plt
 
+
 odom=[0,0]
-def odom_cb(data):
-	global head
-	odom[0]=data.pose.pose.position.x
-	odom[1]=data.pose.pose.position.y
-	head=data.header
+rgoal=[0,0]
+readgoal=False
+def goal_cb(data):
+	global readgoal
+	readgoal=True
+	rgoal[0]=data.pose.position.x
+	rgoal[1]=data.pose.position.y
+
 
 rospy.init_node('PathPlanner')
 path_pub = rospy.Publisher('/path', Path, queue_size=10)
-odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
+goal_sub = rospy.Subscriber('/move_base_simple/goal',PoseStamped, goal_cb)
+tfBuffer = tf2_ros.Buffer()
+listener = tf2_ros.TransformListener(tfBuffer)
+
 #path generation
 def path_generation(init,sPath,w,h,resolution):
 	#Initialize odometry header
 	global path_pub
 	global head
-	r = rospy.Rate(50)  # 50hz
 	path = Path()
 	path_header = Header()
 	path_header.seq = 0
@@ -54,28 +63,15 @@ def path_generation(init,sPath,w,h,resolution):
 		path.poses.append(temp_pose)
 	print path.poses
 	path.header = path_header
-	while not rospy.is_shutdown():
-		path_pub.publish(path)
-		r.sleep()
+	path_pub.publish(path)
+	print "End path generation"
 
 
 #path planner
-import rrt_star
 import a_star
 
-def rrt_pathplanner(obstacleList):
-    # Set Initial parameters
-    rrt = rrt_star.RRT(start=[185,195], goal=[159, 164],randArea=[133,230], obstacleList=obstacleList)
-    path = rrt.Planning(animation=True)
-    # Draw final path
-    rrt.DrawGraph()
-    plt.plot([x for (x, y) in path], [y for (x, y) in path], '-r')
-    plt.grid(True)
-    plt.pause(0.01)  # Need for Mac
-    plt.show()
-
 def a_star_pathplanner(start,goal,grid):
-	test_planner = a_star.PathPlanner(grid,True)
+	test_planner = a_star.PathPlanner(grid,False)
 	init,path=test_planner.a_star(start,goal)
 	print init
 	print path
@@ -133,13 +129,26 @@ class Map(object):
 			rospy.loginfo('convert rgb image error')
 
 		#print obstacleList
-		plt.imshow(grid)
-		plt.show()
+		#plt.imshow(grid)
+		#plt.show()
 		#rrt_pathplanner(obstacleList.tolist())
-		
-		start=[int(odom[0]+(mapmsg.info.height/2)),int(odom[1]+(mapmsg.info.width/2))]
-		print start
-		path,init=a_star_pathplanner(start,[1000,839],grid.tolist())
+
+		while readgoal==False:
+			print "goal wait for reception"
+
+		try:
+            #t = tfBuffer.lookup_transform('xxx', 'world', rospy.Time())
+			t = tfBuffer.lookup_transform('map', 'base_link', rospy.Time())
+			odom[0]=t.transform.translation.x
+			odom[1]=t.transform.translation.y
+		except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+			print(e)
+			rate.sleep()
+
+		print odom,rgoal
+		start=[int((odom[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((odom[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
+		goal=[int((rgoal[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((rgoal[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
+		path,init=a_star_pathplanner(start,goal,grid.tolist())
 		path_generation(init,path,mapmsg.info.height,mapmsg.info.width,mapmsg.info.resolution)
 
 	def getImage():
