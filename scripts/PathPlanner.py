@@ -20,13 +20,13 @@ import matplotlib.pyplot as plt
 odom=[0,0]
 rgoal=[0,0]
 readgoal=False
-def goal_cb(data):
+def goal_cb(data):#ゴール受信関数
 	global readgoal
 	readgoal=True
 	rgoal[0]=data.pose.position.x
 	rgoal[1]=data.pose.position.y
 
-
+#ROS初期設定
 rospy.init_node('PathPlanner')
 path_pub = rospy.Publisher('/path', Path, queue_size=10)
 goal_sub = rospy.Subscriber('/move_base_simple/goal',PoseStamped, goal_cb)
@@ -61,7 +61,7 @@ def path_generation(init,sPath,w,h,resolution):
 		temp_pose.header = path_header
 		temp_pose.header.seq = i+1
 		path.poses.append(temp_pose)
-	print path.poses
+	#print path.poses
 	path.header = path_header
 	path_pub.publish(path)
 	print "End path generation"
@@ -132,24 +132,28 @@ class Map(object):
 		#plt.imshow(grid)
 		#plt.show()
 		#rrt_pathplanner(obstacleList.tolist())
-
-		while readgoal==False:
-			print "goal wait for reception"
-
-		try:
-            #t = tfBuffer.lookup_transform('xxx', 'world', rospy.Time())
-			t = tfBuffer.lookup_transform('map', 'base_link', rospy.Time())
-			odom[0]=t.transform.translation.x
-			odom[1]=t.transform.translation.y
-		except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-			print(e)
-			rate.sleep()
-
-		print odom,rgoal
-		start=[int((odom[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((odom[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
-		goal=[int((rgoal[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((rgoal[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
-		path,init=a_star_pathplanner(start,goal,grid.tolist())
-		path_generation(init,path,mapmsg.info.height,mapmsg.info.width,mapmsg.info.resolution)
+		global readgoal
+		print "Map conversion completed"
+		while not rospy.is_shutdown():
+			if readgoal:#ゴールを受信
+				print "Receive goal"
+				#Robotの座標取得
+				try:
+					t = tfBuffer.lookup_transform('map', 'base_link', rospy.Time())
+					odom[0]=t.transform.translation.x
+					odom[1]=t.transform.translation.y
+				except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
+					print(e)
+					rate.sleep()
+				print "start",odom,"goal",rgoal
+				#座標変換
+				start=[int((odom[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((odom[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
+				goal=[int((rgoal[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((rgoal[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
+				#経路計算
+				path,init=a_star_pathplanner(start,goal,grid.tolist())
+				#経路配信
+				path_generation(init,path,mapmsg.info.height,mapmsg.info.width,mapmsg.info.resolution)
+				readgoal=False
 
 	def getImage():
 		return self.rgb_image
