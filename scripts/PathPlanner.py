@@ -24,7 +24,7 @@ rospy.init_node('PathPlanner')
 path_pub = rospy.Publisher('/path', Path, queue_size=10)
 odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
 #path generation
-def path_generation(init,sPath,w,h):
+def path_generation(init,sPath,w,h,resolution):
 	#Initialize odometry header
 	global path_pub
 	global head
@@ -38,20 +38,17 @@ def path_generation(init,sPath,w,h):
 	hw=w/2
 
 	temp_pose = PoseStamped()
-	temp_pose.pose.position.x = init[0]-hh
-	temp_pose.pose.position.y = init[1]-hw
+	temp_pose.pose.position.x = (init[0]-hh)*resolution
+	temp_pose.pose.position.y = (init[1]-hw)*resolution
 	temp_pose.pose.position.z = 0
 	temp_pose.header = path_header
 	temp_pose.header.seq = 0
 	path.poses.append(temp_pose)
 	for i in range(0,len(sPath)):
-		temp_pose.pose.position.x = sPath[i][0]-hh
-		temp_pose.pose.position.y = sPath[i][1]-hw
+		temp_pose = PoseStamped()
+		temp_pose.pose.position.x = (sPath[i][0]-hh)*resolution
+		temp_pose.pose.position.y = (sPath[i][1]-hw)*resolution
 		temp_pose.pose.position.z = 0
-		temp_pose.pose.orientation.x = 0.0
-		temp_pose.pose.orientation.y = 0.0
-		temp_pose.pose.orientation.z = 0.0
-		temp_pose.pose.orientation.w = 1.0
 		temp_pose.header = path_header
 		temp_pose.header.seq = i+1
 		path.poses.append(temp_pose)
@@ -136,14 +133,14 @@ class Map(object):
 			rospy.loginfo('convert rgb image error')
 
 		#print obstacleList
-		#plt.imshow(grid)
-		#plt.show()
+		plt.imshow(grid)
+		plt.show()
 		#rrt_pathplanner(obstacleList.tolist())
 		
 		start=[int(odom[0]+(mapmsg.info.height/2)),int(odom[1]+(mapmsg.info.width/2))]
 		print start
-		path,init=a_star_pathplanner(start,[159, 164],grid.tolist())
-		path_generation(init,path,mapmsg.info.height,mapmsg.info.width)
+		path,init=a_star_pathplanner(start,[1000,839],grid.tolist())
+		path_generation(init,path,mapmsg.info.height,mapmsg.info.width,mapmsg.info.resolution)
 
 	def getImage():
 		return self.rgb_image
