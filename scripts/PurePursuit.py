@@ -112,7 +112,7 @@ class Simple_path_follower():
                 cmd_vel = Twist()
                 self.cmdvel_pub.publish(cmd_vel)
                 self.path_first_flg = False
-                print("goal!!")
+                rospy.loginfo("goal!!")
                 return
             #calculate target point
             dist_sp_from_nearest = 0.0
@@ -187,7 +187,7 @@ class Simple_path_follower():
             yaw_euler = e[2]
             self.current_yaw_euler = yaw_euler
             if not self.odom_first_flg:
-                print("odom_sub")
+                rospy.loginfo("get odom")
             self.odom_first_flg = True
         except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as er:
             print(er)
@@ -212,11 +212,11 @@ class Simple_path_follower():
                 last_y = self.path_y_np[indx]
                 last_st = self.path_st_np[indx]
             self.path_first_flg = True
-            print("path(first)")
+            rospy.loginfo("get path")
 
 if __name__ == '__main__':
-    print('Path following is Started...')
     test = Simple_path_follower()
+    rospy.loginfo('Path following is Started...')
     try:
         while not rospy.is_shutdown():
             test.update_cmd_vel()

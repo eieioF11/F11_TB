@@ -64,7 +64,7 @@ def path_generation(init,sPath,w,h,resolution):
 	#print path.poses
 	path.header = path_header
 	path_pub.publish(path)
-	print "End path generation"
+	rospy.loginfo('End path generation')
 
 
 #path planner
@@ -133,17 +133,17 @@ class Map(object):
 		#plt.show()
 		#rrt_pathplanner(obstacleList.tolist())
 		global readgoal
-		print "Map conversion completed"
+		rospy.loginfo('Map conversion completed')
 		while not rospy.is_shutdown():
 			if readgoal:#ゴールを受信
-				print "Receive goal"
+				rospy.loginfo('Receive goal')
 				#Robotの座標取得
 				try:
 					t = tfBuffer.lookup_transform('map', 'base_link', rospy.Time())
 					odom[0]=t.transform.translation.x
 					odom[1]=t.transform.translation.y
 				except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
-					print(e)
+					rospy.loginfo(e)
 				print "start",odom,"goal",rgoal
 				#座標変換
 				start=[int((odom[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((odom[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]
