@@ -1,12 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pandas as pd
 import numpy as np
 import math
 # import for ros function
 import rospy
 import tf
+import tf2_ros
 from geometry_msgs.msg import PoseStamped, Twist
 from std_msgs.msg import Header
 from visualization_msgs.msg import Marker
@@ -26,7 +26,7 @@ class Simple_path_follower():
         self.r = rospy.Rate(50)  # 50hz
 
         self.target_speed = 1.0             #target speed [km/h]
-        self.target_LookahedDist = 0.5      #Lookahed distance for Pure Pursuit[m]
+        self.target_LookahedDist = 0.1      #Lookahed distance for Pure Pursuit[m]
 
         #first flg (for subscribe global path topic)
         self.path_first_flg = False
@@ -35,12 +35,14 @@ class Simple_path_follower():
         self.last_indx = 0
 
         #initialize publisher
-        self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)
+        #self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)#実機使用時
+        self.cmdvel_pub = rospy.Publisher("/F11Robo/diff_drive_controller/cmd_vel", Twist, queue_size=50)#シュミレーター使用時
         self.lookahed_pub = rospy.Publisher("/lookahed_marker", Marker, queue_size=50)
 
         #initialize subscriber
         self.path_sub = rospy.Subscriber("/path", Path, self.cb_get_path_topic_subscriber)
-        self.odom_sub = rospy.Subscriber("/odom", Odometry, self.cb_get_odometry_subscriber)
+        self.tfBuffer = tf2_ros.Buffer()
+        self.listener = tf2_ros.TransformListener(self.tfBuffer)
 
 
 
@@ -85,6 +87,7 @@ class Simple_path_follower():
     # Update cmd_vel  #
     ###################
     def update_cmd_vel(self):
+        self.cb_get_odometry()
         if self.path_first_flg == True and self.odom_first_flg == True:
 
             dist_from_current_pos_np = np.sqrt(np.power((self.path_x_np-self.current_x),2) + np.power((self.path_y_np-self.current_y),2))
@@ -98,7 +101,7 @@ class Simple_path_follower():
             else:
                 # Check pass flg from vehicle position
                 for indx in range (self.last_indx,self.path_x_np.shape[0]):
-                    if dist_from_current_pos_np[indx] < 1.0:
+                    if dist_from_current_pos_np[indx] < 0.1:
                         self.pass_flg_np[indx] = 1
                     else:
                         break
@@ -108,6 +111,7 @@ class Simple_path_follower():
             if self.pass_flg_np[self.path_x_np.shape[0]-1] == 1:
                 cmd_vel = Twist()
                 self.cmdvel_pub.publish(cmd_vel)
+                self.path_first_flg = False
                 print("goal!!")
                 return
             #calculate target point
@@ -174,14 +178,19 @@ class Simple_path_follower():
     ####################################
     # Callback for receiving Odometry  #
     ####################################
-    def cb_get_odometry_subscriber(self,msg):
-        self.current_x = msg.pose.pose.position.x
-        self.current_y = msg.pose.pose.position.y
-        e = tf.transformations.euler_from_quaternion((msg.pose.pose.orientation.x, msg.pose.pose.orientation.y, msg.pose.pose.orientation.z, msg.pose.pose.orientation.w))
-        yaw_euler = e[2]
-        self.current_yaw_euler = yaw_euler
-        self.odom_first_flg = True
-        #print("odom_sub")
+    def cb_get_odometry(self):
+        try:
+            t = self.tfBuffer.lookup_transform('map', 'base_link', rospy.Time())
+            self.current_x=t.transform.translation.x
+            self.current_y=t.transform.translation.y
+            e = tf.transformations.euler_from_quaternion((t.transform.rotation.x,t.transform.rotation.y,t.transform.rotation.z,t.transform.rotation.w))
+            yaw_euler = e[2]
+            self.current_yaw_euler = yaw_euler
+            if not self.odom_first_flg:
+                print("odom_sub")
+            self.odom_first_flg = True
+        except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as er:
+            print(er)
 
     ######################################
     # Callback for receiving path topic  #
@@ -203,7 +212,7 @@ class Simple_path_follower():
                 last_y = self.path_y_np[indx]
                 last_st = self.path_st_np[indx]
             self.path_first_flg = True
-            #print("path(first)")
+            print("path(first)")
 
 if __name__ == '__main__':
     print('Path following is Started...')

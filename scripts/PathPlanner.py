@@ -144,7 +144,6 @@ class Map(object):
 					odom[1]=t.transform.translation.y
 				except (tf2_ros.LookupException, tf2_ros.ConnectivityException, tf2_ros.ExtrapolationException) as e:
 					print(e)
-					rate.sleep()
 				print "start",odom,"goal",rgoal
 				#座標変換
 				start=[int((odom[1]/mapmsg.info.resolution+(mapmsg.info.height/2))),int((odom[0]/mapmsg.info.resolution+(mapmsg.info.width/2)))]

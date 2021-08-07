@@ -1,0 +1,19 @@
+<launch>
+	<!-- Arguments -->
+	<arg name="model" default="$(env TURTLEBOT3_MODEL)" doc="model type [burger, waffle, waffle_pi]"/>
+	<arg name="map_file" default="$(find turtlebot3_navigation)/maps/map.yaml"/>
+	<arg name="open_rviz" default="true"/>
+
+	<!-- odom -->
+	<include file="$(find F11_TB)/launch/odom.launch">
+		<arg name="model" value="$(arg model)" />
+		<arg name="map_file" value="$(arg map_file)" />
+		<arg name="open_rviz" default="$(arg open_rviz)"/>
+	</include>
+
+	<!-- Path Planner-->
+	<node pkg="F11_TB" type="PathPlanner.py" name="PathPlanner"/>
+
+	<!-- Path Follower-->
+	<node pkg="F11_TB" type="PurePursuit.py" name="PurePursuit"/>
+</launch>
