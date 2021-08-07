@@ -14,3 +14,7 @@ roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
 ```bash
 roslaunch F11_TB navigation.launch map_file:=$HOME/map.yaml
 ```
+## Path Planning & Path Following
+```bash
+roslaunch F11_TB navi.launch map_file:=$HOME/map.yaml
+```
