@@ -25,7 +25,7 @@ class Simple_path_follower():
         rospy.init_node('Simple_Path_Follower', anonymous=True)
         self.r = rospy.Rate(50)  # 50hz
 
-        self.target_speed = 1.0             #target speed [km/h]
+        self.target_speed = 0.6             #target speed [km/h]
         self.target_LookahedDist = 0.3      #Lookahed distance for Pure Pursuit[m]
 
         #first flg (for subscribe global path topic)
@@ -35,8 +35,8 @@ class Simple_path_follower():
         self.last_indx = 0
 
         #initialize publisher
-        #self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)#実機使用時
-        self.cmdvel_pub = rospy.Publisher("/F11Robo/diff_drive_controller/cmd_vel", Twist, queue_size=50)#シュミレーター使用時
+        self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)#実機使用時
+        #self.cmdvel_pub = rospy.Publisher("/F11Robo/diff_drive_controller/cmd_vel", Twist, queue_size=50)#シュミレーター使用時
         self.lookahed_pub = rospy.Publisher("/lookahed_marker", Marker, queue_size=50)
 
         #initialize subscriber
@@ -87,6 +87,12 @@ class Simple_path_follower():
 
         self.lookahed_pub.publish(marker_data)
 
+    def direction(self,angle1,angle2):
+        sum=math.fabs(angle1+angle2)
+        abssum=math.fabs(angle1)+math.fabs(angle2)
+        if abssum<=sum and abssum-sum<0.2:
+            return True
+        return False
 
     ###################
     # Update cmd_vel  #
@@ -146,10 +152,10 @@ class Simple_path_follower():
 
             yaw_diff = target_yaw - self.current_yaw_euler
 
-            if yaw_diff > math.pi:
-                yaw_diff = yaw_diff % math.pi
-            elif yaw_diff < -math.pi:
-                yaw_diff = yaw_diff%(-math.pi)
+            #if yaw_diff > math.pi:
+            #    yaw_diff = yaw_diff % math.pi
+            #elif yaw_diff < -math.pi:
+            #    yaw_diff = yaw_diff%(-math.pi)
 
 
             sample_sec = dist_sp_from_nearest/(self.target_speed/3.6)
@@ -166,11 +172,15 @@ class Simple_path_follower():
                 if (target_yaw) > (self.current_yaw_euler):
                     yaw_rate = yaw_rate * (-1.0)
 
-            print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi)
+            print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
 
             #Set Cmdvel
+            speed=0
+            if self.direction(target_yaw,self.current_yaw_euler):
+                speed=self.target_speed
+            #Set Cmdvel
             cmd_vel = Twist()
-            cmd_vel.linear.x = self.target_speed/3.6    #[m/s]
+            cmd_vel.linear.x = speed/3.6    #[m/s]
             cmd_vel.linear.y = 0.0
             cmd_vel.linear.z = 0.0
             cmd_vel.angular.x = 0.0

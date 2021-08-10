@@ -69,9 +69,9 @@ class PathPlanner:
                 col_diff = abs(j - self.goal_node[1])
                 self.heuristic[i][j] = int(abs(row_diff - col_diff) + min(row_diff, col_diff) * 2)
 
-        print "Heuristic:"
-        for i in range(len(self.heuristic)):
-            print self.heuristic[i]
+        #print "Heuristic:"
+        #for i in range(len(self.heuristic)):
+            #print self.heuristic[i]
 
     def a_star(self, start_cart, goal_cart):
         """
@@ -199,10 +199,10 @@ class PathPlanner:
             current_x = previous_x
             current_y = previous_y
         full_path.reverse()
-        print "Found the goal in {} iterations.".format(count)
-        print "full_path: ", full_path[:-1]
-        for i in range(len(shortest_path)):
-            print shortest_path[i]
+        #print "Found the goal in {} iterations.".format(count)
+        #print "full_path: ", full_path[:-1]
+        #for i in range(len(shortest_path)):
+            #print shortest_path[i]
 
         if self.visual:
             self._showcnt=0
