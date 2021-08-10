@@ -90,7 +90,7 @@ class Simple_path_follower():
     def direction(self,angle1,angle2):
         sum=math.fabs(angle1+angle2)
         abssum=math.fabs(angle1)+math.fabs(angle2)
-        if abssum<=sum and abssum-sum<0.2:
+        if abssum<=sum:
             return True
         return False
 
