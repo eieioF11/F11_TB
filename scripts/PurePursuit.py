@@ -87,13 +87,6 @@ class Simple_path_follower():
 
         self.lookahed_pub.publish(marker_data)
 
-    def direction(self,angle1,angle2):
-        sum=math.fabs(angle1+angle2)
-        abssum=math.fabs(angle1)+math.fabs(angle2)
-        if abssum<=sum:
-            return True
-        return False
-
     ###################
     # Update cmd_vel  #
     ###################
@@ -150,13 +143,14 @@ class Simple_path_follower():
             # elif target_yaw - self.target_yaw_last > math.pi:
             #     target_yaw = 2*math.pi - target_yaw
 
-            yaw_diff = target_yaw - self.current_yaw_euler
+            ydiff = yaw_diff = target_yaw - self.current_yaw_euler
 
-            #if yaw_diff > math.pi:
+            if yaw_diff > math.pi:
             #    yaw_diff = yaw_diff % math.pi
-            #elif yaw_diff < -math.pi:
+                yaw_diff = -2*math.pi+yaw_diff
+            elif yaw_diff < -math.pi:
+                yaw_diff = 2*math.pi+yaw_diff
             #    yaw_diff = yaw_diff%(-math.pi)
-
 
             sample_sec = dist_sp_from_nearest/(self.target_speed/3.6)
             if sample_sec != 0.0:
@@ -172,11 +166,12 @@ class Simple_path_follower():
                 if (target_yaw) > (self.current_yaw_euler):
                     yaw_rate = yaw_rate * (-1.0)
 
-            print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
+            print ydiff,yaw_diff,"target:",target_yaw*180/math.pi,"current:",self.current_yaw_euler*180/math.pi,"w:",yaw_rate
+            #print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
 
             #Set Cmdvel
             speed=0
-            if self.direction(target_yaw,self.current_yaw_euler):
+            if math.fabs(yaw_diff)<(math.pi/4):
                 speed=self.target_speed
             #Set Cmdvel
             cmd_vel = Twist()
