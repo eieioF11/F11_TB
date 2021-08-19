@@ -19,7 +19,7 @@ def odom_cb(data):
 rospy.init_node('path_node')
 
 odom_sub = rospy.Subscriber('/odom', Odometry, odom_cb)
-path_pub = rospy.Publisher('/path', Path, queue_size=10)
+path_pub = rospy.Publisher('/path_hist', Path, queue_size=10)
 
 if __name__ == '__main__':
     rospy.spin()
