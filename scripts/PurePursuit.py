@@ -12,6 +12,8 @@ from std_msgs.msg import Header
 from visualization_msgs.msg import Marker
 from nav_msgs.msg import Path, Odometry
 
+import matplotlib  # <--追記
+matplotlib.use('Agg')  # <--追記
 import matplotlib.pyplot as plt
 
 #######################################
@@ -27,8 +29,9 @@ class Simple_path_follower():
         rospy.init_node('Simple_Path_Follower', anonymous=True)
         self.r = rospy.Rate(50)  # 50hz
 
-        self.target_speed = 0.6             #target speed [km/h]
-        self.target_LookahedDist = 0.3      #Lookahed distance for Pure Pursuit[m]
+        self.target_speed_max = 0.6            #target speed [km/h]
+        self.target_speed_min = 0.2
+        self.target_LookahedDist = 0.2      #Lookahed distance for Pure Pursuit[m]
 
         #first flg (for subscribe global path topic)
         self.first=False
@@ -56,6 +59,9 @@ class Simple_path_follower():
         self.target_yaw=0
         self.target_lookahed_x=0
         self.target_lookahed_y=0
+        self.oldspeed=0
+        self.dist=0
+
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -106,6 +112,7 @@ class Simple_path_follower():
     ###################
     def update_cmd_vel(self):
         self.cb_get_odometry()
+        speed=0
         if self.path_first_flg == True and self.odom_first_flg == True:
 
             dist_from_current_pos_np = np.sqrt(np.power((self.path_x_np-self.current_x),2) + np.power((self.path_y_np-self.current_y),2))
@@ -139,6 +146,7 @@ class Simple_path_follower():
             for indx in range (self.last_indx,self.path_x_np.shape[0]):
                 dist_sp_from_nearest = self.path_st_np[indx] - self.path_st_np[self.last_indx]
                 tld=math.fabs(self.target_LookahedDist-self.map(self.curvature_val[indx],0,np.amax(self.curvature_val),0,self.target_LookahedDist-0.1))
+                speed=math.fabs(self.target_LookahedDist-self.map(self.curvature_val[indx],0,np.amax(self.curvature_val),self.target_speed_min/3.6,self.target_speed_max/3.6))
                 if tld>=self.target_LookahedDist:
                     tld=self.target_LookahedDist
                 if (dist_sp_from_nearest) > tld:
@@ -152,7 +160,11 @@ class Simple_path_follower():
             #calculate target yaw rate
             if self.cflag:
                 self.target_yaw = math.atan2(target_lookahed_y-self.current_y,target_lookahed_x-self.current_x)
+                self.oldspeed=speed
                 self.cflag=False
+            else:
+                self.dist=math.sqrt((self.target_lookahed_x-self.current_x)**2+(self.target_lookahed_y-self.current_y)**2)
+                speed=self.map(self.dist,0,self.target_LookahedDist,self.target_speed_min/3.6,self.oldspeed)
             target_yaw=self.target_yaw
 
             #check vehicle orientation
@@ -170,7 +182,7 @@ class Simple_path_follower():
                 yaw_diff = 2*math.pi+yaw_diff
             #    yaw_diff = yaw_diff%(-math.pi)
 
-            sample_sec = dist_sp_from_nearest/(self.target_speed/3.6)
+            sample_sec = dist_sp_from_nearest/(speed)
             if sample_sec != 0.0:
                 yaw_rate = math.fabs(yaw_diff)/sample_sec
             else:
@@ -184,22 +196,28 @@ class Simple_path_follower():
                 if (target_yaw) > (self.current_yaw_euler):
                     yaw_rate = yaw_rate * (-1.0)
 
-            max_yawv=2.7
-            if yaw_rate>=max_yawv:
-                yaw_rate=max_yawv
-            min_yawv=-2.7
-            if yaw_rate<=min_yawv:
-                yaw_rate=min_yawv
-
             
             #print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
 
             #Set Cmdvel
-            speed=0
             if self.first and math.fabs(yaw_diff)<(math.pi/20):
                 self.first=False
-            elif not self.first and math.fabs(yaw_diff)<(math.pi/4):
-                speed=self.target_speed/3.6
+            elif not self.first:
+                if speed>(self.target_speed_max/3.6):
+                    speed=self.target_speed_max/3.6
+                elif speed<(self.target_speed_min/3.6):
+                    speed=self.target_speed_min/3.6
+            else:
+                speed=0
+
+            max_yawv=2.6
+            if yaw_rate>=max_yawv:
+                yaw_rate=max_yawv
+            min_yawv=-2.6
+            if yaw_rate<=min_yawv:
+                yaw_rate=min_yawv
+
+
             #Set Cmdvel
             cmd_vel = Twist()
             cmd_vel.linear.x = speed    #[m/s]
