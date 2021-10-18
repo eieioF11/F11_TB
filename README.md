@@ -6,11 +6,31 @@ teb_local_plannerのインストール
 sudo apt-get install ros- melodic -teb-local-planner
 rosdep install teb_local_planner
 ```
+## ロボット側で実行するノード
+```bash
+roslaunch turtlebot3_bringup turtlebot3_robot.launch
+```
+カメラを使用する場合
+```bash
+rosrun cv_camera cv_camera_node _property_0_code:=404 _property_0_code:=1
+```
+## ロボットの種類指定
+```bash
+export TURTLEBOT3_MODEL=burger
+```
+bashrcに上のコマンドを記載すると毎回入力しなくてよくなる。
+```bash
+gedit ~/.bashrc
+```
 ## キーボード操作
 ```bash
 roslaunch turtlebot3_teleop turtlebot3_teleop_key.launch
 ```
-## ナビゲーション
+## マッピング
+```bash
+roslaunch turtlebot3_slam turtlebot3_slam.launch
+```
+## ROSナビゲーション
 ```bash
 roslaunch F11_TB navigation.launch map_file:=$HOME/map.yaml
 ```
