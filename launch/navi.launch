@@ -14,8 +14,8 @@
 	<!-- Path Planner-->
 	<node pkg="F11_TB" type="PathPlanner.py" name="PathPlanner" output="screen"/>
 
-	<!-- Path Follower-->
-	<node pkg="F11_TB" type="PurePursuit.py" name="PurePursuit" output="screen"/>
+	<!-- Path Follower
+	<node pkg="F11_TB" type="PurePursuit.py" name="PurePursuit" output="screen"/>-->
 
 	<node pkg="jsk_rviz_plugins"
 			type="rosconsole_overlay_text.py"

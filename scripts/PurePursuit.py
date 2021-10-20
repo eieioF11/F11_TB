@@ -15,9 +15,9 @@ from nav_msgs.msg import Path, Odometry
 from jsk_rviz_plugins.msg import *
 from std_msgs.msg import ColorRGBA, Float32
 
-#import matplotlib  # <--追記
-#matplotlib.use('Agg')  # <--追記
-#import matplotlib.pyplot as plt
+from sensor_msgs.msg import LaserScan
+
+import matplotlib.pyplot as plt
 
 #######################################
 # Simple Path follower (Pure Pursuit) #
@@ -50,11 +50,14 @@ class Simple_path_follower():
         self.value_pub1 = rospy.Publisher("CMD_Vx", Float32, queue_size=1)
         self.value_pub2 = rospy.Publisher("CMD_Az", Float32, queue_size=1)
         self.value_pub3 = rospy.Publisher("Curvature_val", Float32, queue_size=1)
+        self.value_pub4 = rospy.Publisher("range_ahead", Float32, queue_size=1)
 
         #initialize subscriber
         self.path_sub = rospy.Subscriber("/path", Path, self.cb_get_path_topic_subscriber)
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
+        self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)   #'scan'トピックをLaserScan型で購読し，scan_callback関数を呼び出す
+
 
         #走行経路のパスを配信
         self.path = Path()
@@ -68,6 +71,10 @@ class Simple_path_follower():
         self.oldspeed=0
         self.dist=0
         self.cur_diff=0.0
+
+        self.Obstacle=True#障害物フラグ
+        self.range_ahead=0.0
+        self.localmap= np.zeros([1000,1000])
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -184,20 +191,12 @@ class Simple_path_follower():
                 speed=self.map(self.dist,0,self.target_LookahedDist,self.target_speed_min/3.6,self.oldspeed)
             target_yaw=self.target_yaw
 
-            #check vehicle orientation
-            # if target_yaw - self.target_yaw_last < -math.pi:
-            #     target_yaw = 2*math.pi + target_yaw
-            # elif target_yaw - self.target_yaw_last > math.pi:
-            #     target_yaw = 2*math.pi - target_yaw
-
-            ydiff = yaw_diff = target_yaw - self.current_yaw_euler
+            yaw_diff = target_yaw - self.current_yaw_euler
 
             if yaw_diff > math.pi:
-            #    yaw_diff = yaw_diff % math.pi
                 yaw_diff = -2*math.pi+yaw_diff
             elif yaw_diff < -math.pi:
                 yaw_diff = 2*math.pi+yaw_diff
-            #    yaw_diff = yaw_diff%(-math.pi)
 
             sample_sec = dist_sp_from_nearest/(speed)
             if sample_sec != 0.0:
@@ -213,7 +212,7 @@ class Simple_path_follower():
                 if (target_yaw) > (self.current_yaw_euler):
                     yaw_rate = yaw_rate * (-1.0)
 
-            
+
             #print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
 
             #Set Cmdvel
@@ -234,6 +233,8 @@ class Simple_path_follower():
             if yaw_rate<=min_yawv:
                 yaw_rate=min_yawv
 
+            if self.Obstacle:
+                speed=0.0
 
             #Set Cmdvel
             cmd_vel = Twist()
@@ -245,7 +246,8 @@ class Simple_path_follower():
             cmd_vel.angular.z = yaw_rate
             self.cmdvel_pub.publish(cmd_vel)
 
-            rospy.loginfo(str(self.first)+","+str(yaw_diff*180/math.pi)+","+str(target_yaw*180/math.pi)+","+str(self.current_yaw_euler*180/math.pi)+",yaw_rate:"+str(yaw_rate)+",Vx:"+str(speed)+","+"dist:"+str(self.dist))
+            if not self.Obstacle:
+                rospy.loginfo(str(self.first)+","+str(yaw_diff*180/math.pi)+","+str(target_yaw*180/math.pi)+","+str(self.current_yaw_euler*180/math.pi)+",yaw_rate:"+str(yaw_rate)+",Vx:"+str(speed)+","+"dist:"+str(self.dist))
 
             #publish maker
             self.publish_lookahed_marker(target_lookahed_x,target_lookahed_y,target_yaw)
@@ -255,8 +257,35 @@ class Simple_path_follower():
         self.value_pub1.publish(speed)
         self.value_pub2.publish(yaw_rate)
         self.value_pub3.publish(nowCV)
+        self.value_pub4.publish(self.range_ahead)
         self.r.sleep()
         return
+
+    ####################################
+    # Callback for receiving Scan  #
+    ####################################
+
+    def scan_callback(self,msg):
+        self.range_ahead = (msg.ranges[0]+msg.ranges[1]+msg.ranges[len(msg.ranges)-2]+msg.ranges[len(msg.ranges)-1])/4#ロボットの真正面にある障害物までの距離
+        self.Obstacle=False
+        dangle=(msg.angle_max-msg.angle_min)/len(msg.ranges)
+        print(msg.angle_max,msg.angle_min,dangle)
+        angle=msg.angle_min
+        for i in msg.ranges:
+            '''x=i*math.sin(angle)
+            y=i*math.cos(angle)
+            if math.fabs(x)<1.0 and math.fabs(y)<1.0:
+                print(x,y)
+                x=int((1+x)*999)
+                y=int((1-y)*999)
+                print(x,y)
+                self.localmap[x,y]=1
+            angle+=dangle'''
+            if 0.13 < i and i <0.24:
+                self.Obstacle=True
+                rospy.logwarn("Obstacle detection "+str(i)+"[m] ahead")#正面にある障害物までの距離を表示
+        #plt.imshow(self.localmap)
+        #plt.show()
 
 
     ####################################
