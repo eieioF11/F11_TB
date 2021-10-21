@@ -74,7 +74,9 @@ class Simple_path_follower():
 
         self.Obstacle=True#障害物フラグ
         self.range_ahead=0.0
-        self.localmap= np.zeros([1000,1000])
+        self.mapsize=100 #マップ配列のサイズ
+        self.maprange=1.0#[m] (中心から上下左右にmaprange[m]の範囲)
+        self.localmap= np.zeros([self.mapsize,self.mapsize])
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -269,23 +271,26 @@ class Simple_path_follower():
         self.range_ahead = (msg.ranges[0]+msg.ranges[1]+msg.ranges[len(msg.ranges)-2]+msg.ranges[len(msg.ranges)-1])/4#ロボットの真正面にある障害物までの距離
         self.Obstacle=False
         dangle=(msg.angle_max-msg.angle_min)/len(msg.ranges)
-        print(msg.angle_max,msg.angle_min,dangle)
+        #print(msg.angle_max,msg.angle_min,dangle)
         angle=msg.angle_min
+        self.localmap= np.zeros([self.mapsize,self.mapsize])
         for i in msg.ranges:
-            '''x=i*math.sin(angle)
-            y=i*math.cos(angle)
-            if math.fabs(x)<1.0 and math.fabs(y)<1.0:
-                print(x,y)
-                x=int((1+x)*999)
-                y=int((1-y)*999)
-                print(x,y)
+            #localmap作成
+            x=i*math.cos(angle)
+            y=i*math.sin(angle)
+            if math.fabs(x)<self.maprange and math.fabs(y)<self.maprange:
+                x=int((1-x)*(self.mapsize/2.0))
+                y=int((1-y)*(self.mapsize/2.0))
                 self.localmap[x,y]=1
-            angle+=dangle'''
+            angle+=dangle
+            #障害物検知
             if 0.13 < i and i <0.24:
                 self.Obstacle=True
                 rospy.logwarn("Obstacle detection "+str(i)+"[m] ahead")#正面にある障害物までの距離を表示
-        #plt.imshow(self.localmap)
-        #plt.show()
+        self.localmap[self.mapsize//2 , self.mapsize//2]=2#中心点
+        plt.imshow(self.localmap)
+        plt.pause(0.01)
+        plt.clf()           # 画面初期化
 
 
     ####################################
