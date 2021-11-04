@@ -19,6 +19,9 @@ from sensor_msgs.msg import LaserScan
 
 import matplotlib.pyplot as plt
 
+from icp import icp
+from Timer import Timer
+
 #######################################
 # Simple Path follower (Pure Pursuit) #
 #######################################
@@ -77,6 +80,10 @@ class Simple_path_follower():
         self.mapsize=100 #マップ配列のサイズ
         self.maprange=1.0#[m] (中心から上下左右にmaprange[m]の範囲)
         self.localmap= np.zeros([self.mapsize,self.mapsize])
+        self.localmap_pre=self.localmap
+        self.t0=Timer()
+        self.obstacles=np.zeros((1,2))
+        self.obstacles_pre=np.zeros((1,2))
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -273,24 +280,43 @@ class Simple_path_follower():
         dangle=(msg.angle_max-msg.angle_min)/len(msg.ranges)
         #print(msg.angle_max,msg.angle_min,dangle)
         angle=msg.angle_min
-        self.localmap= np.zeros([self.mapsize,self.mapsize])
+        #self.localmap_pre=self.localmap
+        #self.localmap= np.zeros([self.mapsize,self.mapsize])
+        #if self.t0.stand_by(0.5) or len(self.obstacles)<=1:
+        self.obstacles_pre=self.obstacles
+        #self.obstacles=np.zeros((1,2))
         for i in msg.ranges:
             #localmap作成
             x=i*math.cos(angle)
             y=i*math.sin(angle)
             if math.fabs(x)<self.maprange and math.fabs(y)<self.maprange:
+                self.obstacles=np.append(self.obstacles,[[x,y]], axis=0)
                 x=int((1-x)*(self.mapsize/2.0))
                 y=int((1-y)*(self.mapsize/2.0))
-                self.localmap[x,y]=1
+                #self.localmap[x,y]=1
             angle+=dangle
             #障害物検知
             if 0.13 < i and i <0.24:
                 self.Obstacle=True
                 rospy.logwarn("Obstacle detection "+str(i)+"[m] ahead")#正面にある障害物までの距離を表示
-        self.localmap[self.mapsize//2 , self.mapsize//2]=2#中心点
-        plt.imshow(self.localmap)
+        #transformation_history, aligned_points = icp(self.obstacles_pre,self.obstacles, verbose=False)
+        plt.xlim(-self.maprange,self.maprange)
+        plt.ylim(-self.maprange,self.maprange)
+        plt.axes().set_aspect('equal')
+        plt.plot(self.obstacles[:, 0],self.obstacles[:, 1], 'rx', label='reference points')
+        plt.plot(self.obstacles_pre[:, 0],self.obstacles_pre[:, 1], 'b1', label='reference points')
+        #plt.plot(aligned_points[:, 0], aligned_points[:, 1], 'g+', label='aligned points')
         plt.pause(0.01)
         plt.clf()           # 画面初期化
+        '''
+        self.localmap[self.mapsize//2 , self.mapsize//2]=2#中心点
+        plt.subplot(2,1,1)
+        plt.imshow(self.localmap)
+        plt.subplot(2,1,2)
+        plt.imshow(self.localmap_pre)
+        plt.pause(0.01)
+        plt.clf()           # 画面初期化
+        '''
 
 
     ####################################
