@@ -22,6 +22,8 @@ import matplotlib.pyplot as plt
 from icp import icp
 from Timer import Timer
 
+import cv2
+
 #######################################
 # Simple Path follower (Pure Pursuit) #
 #######################################
@@ -77,13 +79,16 @@ class Simple_path_follower():
 
         self.Obstacle=True#障害物フラグ
         self.range_ahead=0.0
-        self.mapsize=100 #マップ配列のサイズ
+        self.mapsize=200 #マップ配列のサイズ
         self.maprange=1.0#[m] (中心から上下左右にmaprange[m]の範囲)
-        self.localmap= np.zeros([self.mapsize,self.mapsize])
+        self.localmap= np.zeros([self.mapsize,self.mapsize],dtype=np.uint8)
         self.localmap_pre=self.localmap
+        self.kernel = np.ones((10,10),np.uint8)
         self.t0=Timer()
         self.obstacles=np.zeros((1,2))
         self.obstacles_pre=np.zeros((1,2))
+        # 背景差分の設定
+        self.fgbg = cv2.bgsegm.createBackgroundSubtractorMOG()              # 背景オブジェクト
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -281,10 +286,11 @@ class Simple_path_follower():
         #print(msg.angle_max,msg.angle_min,dangle)
         angle=msg.angle_min
         #self.localmap_pre=self.localmap
-        #self.localmap= np.zeros([self.mapsize,self.mapsize])
+        self.localmap_pre = self.localmap.copy().astype("float")
+        self.localmap= np.zeros([self.mapsize,self.mapsize],dtype=np.uint8)
         #if self.t0.stand_by(0.5) or len(self.obstacles)<=1:
         self.obstacles_pre=self.obstacles
-        #self.obstacles=np.zeros((1,2))
+        self.obstacles=np.zeros((1,2))
         for i in msg.ranges:
             #localmap作成
             x=i*math.cos(angle)
@@ -293,13 +299,14 @@ class Simple_path_follower():
                 self.obstacles=np.append(self.obstacles,[[x,y]], axis=0)
                 x=int((1-x)*(self.mapsize/2.0))
                 y=int((1-y)*(self.mapsize/2.0))
-                #self.localmap[x,y]=1
+                self.localmap[x,y]=255
             angle+=dangle
             #障害物検知
             if 0.13 < i and i <0.24:
                 self.Obstacle=True
                 rospy.logwarn("Obstacle detection "+str(i)+"[m] ahead")#正面にある障害物までの距離を表示
         #transformation_history, aligned_points = icp(self.obstacles_pre,self.obstacles, verbose=False)
+        '''
         plt.xlim(-self.maprange,self.maprange)
         plt.ylim(-self.maprange,self.maprange)
         plt.axes().set_aspect('equal')
@@ -309,14 +316,38 @@ class Simple_path_follower():
         plt.pause(0.01)
         plt.clf()           # 画面初期化
         '''
-        self.localmap[self.mapsize//2 , self.mapsize//2]=2#中心点
-        plt.subplot(2,1,1)
-        plt.imshow(self.localmap)
-        plt.subplot(2,1,2)
-        plt.imshow(self.localmap_pre)
-        plt.pause(0.01)
-        plt.clf()           # 画面初期化
-        '''
+
+        closing = cv2.morphologyEx(self.localmap, cv2.MORPH_CLOSE, self.kernel)
+        closing_pre = cv2.morphologyEx(self.localmap_pre, cv2.MORPH_CLOSE, self.kernel)
+        #closing = cv2.dilate(self.localmap, self.kernel, iterations = 1)
+        #closing_pre = cv2.dilate(self.localmap_pre, self.kernel, iterations = 1)
+        img_color = np.zeros((self.mapsize,self.mapsize, 3),dtype=np.uint8)
+        img_color = np.insert(arr=img_color, obj=2, values=closing, axis=2)
+        img_color_pre = np.zeros((self.mapsize,self.mapsize, 3),dtype=np.uint8)
+        img_color_pre = np.insert(arr=img_color_pre, obj=0, values=closing_pre, axis=2)
+        dst = cv2.addWeighted(img_color,0.5,img_color_pre,0.5,0)
+        dst = cv2.add(img_color,img_color_pre)
+        dst_ = cv2.cvtColor(dst, cv2.COLOR_RGB2BGR)
+        black = [0, 0, 0]
+        color = [255, 0, 255]
+        dst_[np.where((dst_ == color).all(axis=2))] = black
+
+        ksize=1
+        #中央値フィルタ
+        dst = cv2.medianBlur(dst,ksize)
+        dst_ = cv2.medianBlur(dst_,ksize)
+
+        #オリジナル画像の高さ・幅を取得
+        height = dst.shape[0]
+        width = dst.shape[1]
+        #リサイズ(拡大/縮小)
+        multiple = 4
+        dst = cv2.resize(dst , (int(width * multiple), int(height * multiple)))
+        dst_ = cv2.resize(dst_ , (int(width * multiple), int(height * multiple)))
+
+        cv2.imshow("Local map",dst)
+        cv2.imshow("Local map_",dst_)
+        cv2.waitKey(1)
 
 
     ####################################
