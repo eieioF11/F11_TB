@@ -2,5 +2,23 @@
 	"cSpell.ignoreWords": [
 		"plt",
 		"show"
+	],
+	"cSpell.words": [
+		"amax",
+		"cflag",
+		"cmdvel",
+		"Cmdvel",
+		"imshow",
+		"indx",
+		"lookahed",
+		"Lookahed",
+		"odometry",
+		"Odometry",
+		"pyplot",
+		"RGBA",
+		"Robo",
+		"rospy",
+		"rviz",
+		"yawv"
 	]
 }
