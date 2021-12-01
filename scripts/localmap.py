@@ -18,7 +18,7 @@ class LocalMap():
         self.scan_sub = rospy.Subscriber('/scan', LaserScan, self.scan_callback)   #'scan'トピックをLaserScan型で購読し，scan_callback関数を呼び出す
         self.Obstacle=True#障害物フラグ
         self.Range_ahead=0.0
-        self.mapsize=200 #マップ配列のサイズ
+        self.mapsize=150 #マップ配列のサイズ
         self.maprange=1.0#[m] (中心から上下左右にmaprange[m]の範囲)
         self.localmap= np.zeros([self.mapsize,self.mapsize],dtype=np.uint8)
         self.localmap_pre=self.localmap
@@ -58,9 +58,12 @@ class LocalMap():
             y=i*math.sin(angle)
             if math.fabs(x)<self.maprange and math.fabs(y)<self.maprange:
                 self.obstacles=np.append(self.obstacles,[[x,y]], axis=0)
-                x=int((1-x)*(self.mapsize/2.0))
-                y=int((1-y)*(self.mapsize/2.0))
-                self.localmap[x,y]=255
+                if x>0 :
+                    #x=int((1-x)*(self.mapsize/2.0))
+                    #y=int((1-y)*(self.mapsize/2.0))
+                    x=int((1-x)*(self.mapsize))
+                    y=int((1-y)*(self.mapsize/2.0))
+                    self.localmap[x,y]=255
             angle+=dangle
             #障害物検知
             if 0.13 < i and i <0.24:
