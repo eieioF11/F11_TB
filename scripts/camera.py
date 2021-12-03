@@ -73,17 +73,18 @@ def process_image(msg):
         #cv2.imshow("image",thresh)
 
         #重心計算
-        maxCont=contours[0]
-        for c in contours:
-            if len(maxCont)<len(c):
-                maxCont=c
-        mu = cv2.moments(maxCont)
-        x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
-        mlist.append([x,y])
-        cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
-        for i in mlist:
-            #print i
-            cv2.circle(frame,(i[0],i[1]), 4,(0, 255, 255), 2, 4)
+        if len(contours)>0:
+            maxCont=contours[0]
+            for c in contours:
+                if len(maxCont)<len(c):
+                    maxCont=c
+            mu = cv2.moments(maxCont)
+            x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
+            mlist.append([x,y])
+            cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
+            for i in mlist:
+                #print i
+                cv2.circle(frame,(i[0],i[1]), 4,(0, 255, 255), 2, 4)
 
         # 読み込んだ画像の高さと幅を取得
         height = frame.shape[0]
@@ -96,7 +97,6 @@ def process_image(msg):
         if key == ord("s"):
             print("save file")
             save_csv(mlist)
-        elif key == ord("i"):
             print("save image")
             save_image(frame)
         elif key == ord("r"):
