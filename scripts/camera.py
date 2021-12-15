@@ -87,8 +87,16 @@ def process_image(msg):
         if len(contours)>0:
             maxCont=contours[0]
             for c in contours:
+                area = cv2.contourArea(c)
+                print("area:",area)
                 if len(maxCont)<len(c):
                     maxCont=c
+                #if area>3000:
+                #    maxCont=c
+            mu = cv2.moments(maxCont)
+            x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
+            cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
+            cv2.circle(frame2,(x,y), 10, color=(0, 0,255), thickness=-1)
             mu = cv2.moments(maxCont)
             x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
             cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
@@ -96,7 +104,7 @@ def process_image(msg):
             if len(mlist)>1:
                 d=get_distance((mlist[-1][0],mlist[-1][1]), (x,y))
                 rad=math.atan2(y-mlist[-1][1],x-mlist[-1][0])
-                print(d)
+                #print(d)
                 if d<=10:
                     #cv2.arrowedLine(frame,(mlist[-1][0],mlist[-1][1]), (x,y), (255,0, 0), thickness=10)
                     r=70
