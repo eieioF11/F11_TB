@@ -4,6 +4,7 @@
 import rospy
 
 import numpy as np
+import math
 
 #Import message type, OccupancyGrid is the message type
 from nav_msgs.msg import OccupancyGrid
@@ -112,6 +113,23 @@ def a_star_pathplanner(start,goal,grid):
 	plt.show()
 	return cpath
 
+
+import pandas as pd
+import glob
+import os
+
+def load_csv():
+    fpath=os.environ['HOME']+"/catkin_ws/src/F11_TB/csv/conversion/"
+    fname=[]
+    for f in glob.glob(fpath+'*.csv'):
+        fname.append(int(os.path.splitext(os.path.basename(f))[0]))
+    #print(fname)
+    n=0
+    if len(fname):
+        n=max(fname)
+    df = pd.read_csv(fpath+str(n)+".csv")
+    return df.values
+
 #Map
 class Map(object):
 	def __init__(self):
@@ -172,6 +190,17 @@ class Map(object):
 			oy=mapmsg.info.origin.position.y
 			index_ox=int(-1*ox/mapmsg.info.resolution)
 			index_oy=int(-1*oy/mapmsg.info.resolution)
+			mlist=load_csv()
+			print(mlist)
+			for i in mlist:
+				r=math.pi/2
+				x=int(i[0]*math.cos(r)-i[1]*math.sin(r))
+				y=int(i[0]*math.sin(r)+i[1]*math.cos(r))
+				try :
+					if tem[y,x]==0:
+						tem[y,x]=200
+				except:
+					pass
 		except Exception,e:
 			print e
 			rospy.loginfo('convert rgb image error')
