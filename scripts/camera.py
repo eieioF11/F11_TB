@@ -9,14 +9,34 @@ import pandas as pd
 import glob
 import os
 import math
+import numpy as np
 
 global avg
 global mlist
+global oldm
 avg=None
 mlist=[]
 
+oldm=[]
+
+def find_index_of_nearest_xy(x_array, y_array, x_point, y_point):
+    distance = (y_array-y_point)**2 + (x_array-x_point)**2
+    i = np.where(distance==distance.min())
+    return i
+
 def save_image(img):
     fpath=os.environ['HOME']+"/catkin_ws/src/F11_TB/images/"
+    fname=[]
+    for f in glob.glob(fpath+'*.jpg'):
+        fname.append(int(os.path.splitext(os.path.basename(f))[0]))
+    print(fname)
+    n=0
+    if len(fname):
+        n=max(fname)+1
+    cv2.imwrite(fpath+str(n)+".jpg", img)
+
+def save_image_mem(img):
+    fpath=os.environ['HOME']+"/catkin_ws/src/F11_TB/images/mem/"
     fname=[]
     for f in glob.glob(fpath+'*.jpg'):
         fname.append(int(os.path.splitext(os.path.basename(f))[0]))
@@ -41,13 +61,10 @@ def save_csv(data):
         n=max(fname)+1
     df.to_csv(fpath+str(n)+".csv",index=False)
 
-def get_distance(a,b):
-    d = math.sqrt((b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2)
-    return d
-
 def process_image(msg):
     global avg
     global mlist
+    global oldm
     try:
         #画像取得
         bridge = CvBridge()
@@ -63,11 +80,11 @@ def process_image(msg):
         #二値化
         thresh = cv2.threshold(frameDelta, 3, 255, cv2.THRESH_BINARY)[1]
         #中央値フィルタ
-        ksize=17
+        ksize=21
         thresh = cv2.medianBlur(thresh,ksize)
         #輪郭検出
         image, contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cv2.drawContours(frame, contours, -1, color=(0, 0, 255), thickness=2)
+        #cv2.drawContours(frame, contours, -1, color=(0, 0, 255), thickness=2)
         #cv2.drawContours(frame2, contours, -1, color=(0, 0, 255), thickness=-1)
         #max_area = 0
         #target = contours[0]
@@ -86,29 +103,38 @@ def process_image(msg):
         #重心計算
         if len(contours)>0:
             maxCont=contours[0]
-            for c in contours:
-                area = cv2.contourArea(c)
-                print("area:",area)
-                if len(maxCont)<len(c):
-                    maxCont=c
-                #if area>3000:
-                #    maxCont=c
-            mu = cv2.moments(maxCont)
-            x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
-            cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
-            cv2.circle(frame2,(x,y), 10, color=(0, 0,255), thickness=-1)
-            mu = cv2.moments(maxCont)
-            x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
-            cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
-            cv2.circle(frame2,(x,y), 10, color=(0, 0,255), thickness=-1)
-            if len(mlist)>1:
-                d=get_distance((mlist[-1][0],mlist[-1][1]), (x,y))
-                rad=math.atan2(y-mlist[-1][1],x-mlist[-1][0])
-                #print(d)
-                if d<=10:
-                    #cv2.arrowedLine(frame,(mlist[-1][0],mlist[-1][1]), (x,y), (255,0, 0), thickness=10)
-                    r=70
-                    cv2.arrowedLine(frame2,(mlist[-1][0],mlist[-1][1]), (int(r*math.cos(rad))+mlist[-1][0],int(r*math.sin(rad))+mlist[-1][1]), (255,0, 0), thickness=20,tipLength=0.5)
+            alim=1500
+            # 差分があった点を画面に描く
+            nowm=[]
+            for target in contours:
+                x, y, w, h = cv2.boundingRect(target)
+                area = w*h#cv2.contourArea(target)
+                if area<alim: continue # 小さな変更点は無視
+                #print(area)
+                cv2.rectangle(frame2, (x, y), (x+w, y+h),(0, 0, 255), 2)
+                mu = cv2.moments(target)
+                x,y= int(mu["m10"]/mu["m00"]) , int(mu["m01"]/mu["m00"])
+                nowm.append((x,y))
+                cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
+                if len(maxCont)<len(target):
+                    maxCont=target
+
+            if len(oldm) and  len(nowm):
+                r=70
+                oldm=np.array(oldm)
+                for p in nowm:
+                    x=p[0]
+                    y=p[1]
+                    index=find_index_of_nearest_xy(oldm[:,0],oldm[:,1],x,y)
+                    x_=oldm[index,0]
+                    y_=oldm[index,1]
+                    rad=math.atan2(y-y_,x-x_)
+                    #print(x_,y_)
+                    cv2.circle(frame2,(x,y), 10, color=(0, 0,255), thickness=-1)
+                    cv2.arrowedLine(frame2,(x_,y_), (int(r*math.cos(rad))+x_,int(r*math.sin(rad))+y_), (255,0, 0), thickness=20,tipLength=0.5)
+            if len(nowm):
+                oldm=nowm
+
             mlist.append([x,y])
 
         # 読み込んだ画像の高さと幅を取得
@@ -125,6 +151,9 @@ def process_image(msg):
             save_csv(mlist)
             print("save image")
             save_image(frame)
+        elif key == ord("p"):
+            print("save image")
+            save_image_mem(frame2)
         elif key == ord("r"):
             mlist=[]
     except Exception as err:
