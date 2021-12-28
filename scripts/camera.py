@@ -120,7 +120,6 @@ def process_image(msg):
                     maxCont=target
 
             if len(oldm) and  len(nowm):
-                r=70
                 oldm=np.array(oldm)
                 for p in nowm:
                     x=p[0]
@@ -128,14 +127,23 @@ def process_image(msg):
                     index=find_index_of_nearest_xy(oldm[:,0],oldm[:,1],x,y)
                     x_=oldm[index,0]
                     y_=oldm[index,1]
+                    dist = ((y_-y)**2 + (x_-x)**2)[0,0]
                     rad=math.atan2(y-y_,x-x_)
+                    r=1*dist
+                    #print(r)
+                    if r>200 or r==0:
+                        r=0
+                    elif r<20:
+                        r=20
+                    elif r>100:
+                        r=100
                     #print(x_,y_)
-                    cv2.circle(frame2,(x,y), 10, color=(0, 0,255), thickness=-1)
-                    cv2.arrowedLine(frame2,(x_,y_), (int(r*math.cos(rad))+x_,int(r*math.sin(rad))+y_), (255,0, 0), thickness=20,tipLength=0.5)
+                    cv2.circle(frame2,(x,y), 5, color=(0, 0,255), thickness=-1)
+                    cv2.arrowedLine(frame2,(x_,y_), (int(r*math.cos(rad))+x_,int(r*math.sin(rad))+y_), (0,255,255), thickness=7,tipLength=0.5)
+                mlist.append([x,y])
             if len(nowm):
                 oldm=nowm
 
-            mlist.append([x,y])
 
         # 読み込んだ画像の高さと幅を取得
         height = frame.shape[0]
