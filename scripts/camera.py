@@ -19,15 +19,17 @@ class Human_Detection():
     def __init__(self):
         rospy.init_node('img_proc')
         rospy.loginfo('img_proc node started')
-        #rospy.Subscriber("kodak/kodak_image_view/output", Image, self.process_image)
-        rospy.Subscriber("/image_raw", Image, self.process_image)
+        rospy.Subscriber("kodak/kodak_image_view/output", Image, self.process_image)
+        #rospy.Subscriber("/image_raw", Image, self.process_image)
         self.Human_pub = rospy.Publisher("/Human_marker", Marker, queue_size=50)
+        self.image_pub = rospy.Publisher('detect_image', Image, queue_size=10)
         self.map_sub = rospy.Subscriber("map",OccupancyGrid, self.map)
         self.avg=None
         self.mlist=[]
         self.oldm=[]
         self.getmap=False
         rospy.spin()
+        self.H=[]
 
 	#The definition of the callback function, passed mapmsg
     def map(self,mapmsg):
@@ -45,23 +47,23 @@ class Human_Detection():
             map = map.reshape((mapmsg.info.height,mapmsg.info.width))
             print "resol",mapmsg.info.resolution,"h",mapmsg.info.height,"w",mapmsg.info.width
             print "orizin x:",mapmsg.info.origin.position.x,"y:",mapmsg.info.origin.position.y
-            ox=mapmsg.info.origin.position.x
-            oy=mapmsg.info.origin.position.y
-            self.index_ox=int(-1*ox/mapmsg.info.resolution)
-            self.index_oy=int(-1*oy/mapmsg.info.resolution)
+            self.ox=mapmsg.info.origin.position.x
+            self.oy=mapmsg.info.origin.position.y
+            self.index_ox=int(-1*self.ox/mapmsg.info.resolution)
+            self.index_oy=int(-1*self.oy/mapmsg.info.resolution)
             self.mapresol=mapmsg.info.resolution
             self.getmap=True
         except Exception,e:
             print e
 
-    def publish_marker(self,x,y,yaw_euler):
+    def publish_marker(self,x,y,yaw_euler,id,r):
 
         marker_data = Marker()
         marker_data.header.frame_id = "map"
         marker_data.header.stamp = rospy.Time.now()
 
         marker_data.ns = "my_name_space"
-        marker_data.id = 0
+        marker_data.id = id
 
         marker_data.action = Marker.ADD
 
@@ -77,9 +79,9 @@ class Human_Detection():
         marker_data.pose.orientation.w = temp_quaternion[3]
 
         marker_data.color.r = 1.0
-        marker_data.color.g = 0.0
+        marker_data.color.g = 1.0
         marker_data.color.b = 0.0
-        marker_data.color.a = 1.0
+        marker_data.color.a = r
 
         marker_data.scale.x = 0.1
         marker_data.scale.y = 0.1
@@ -88,7 +90,7 @@ class Human_Detection():
         marker_data.lifetime = rospy.Duration()
         marker_data.type = 0
 
-        self.lookahed_pub.publish(marker_data)
+        self.Human_pub.publish(marker_data)
 
     def find_index_of_nearest_xy(self,x_array, y_array, x_point, y_point):
         distance = (y_array-y_point)**2 + (x_array-x_point)**2
@@ -137,8 +139,12 @@ class Human_Detection():
             #画像取得
             bridge = CvBridge()
             frame = bridge.imgmsg_to_cv2(msg, "bgr8")
+            map = cv2.imread(os.environ['HOME']+"/map.pgm")
             frame2=frame.copy()
             gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            # 読み込んだ画像の高さと幅を取得
+            height = frame.shape[0]
+            width = frame.shape[1]
             #差分計算
             if self.avg is None:
                 self.avg = gray.copy().astype("float")
@@ -186,9 +192,19 @@ class Human_Detection():
                     cv2.circle(frame, (x,y), 4,(0, 255, 0), 2, 4)
                     if len(maxCont)<len(target):
                         maxCont=target
-
+                try:
+                    for i in self.H:
+                        id=i[0]
+                        Hx=i[1]
+                        Hy=i[2]
+                        rad=i[3]
+                        self.publish_marker(Hx,Hy,rad*-1,id,0.0)
+                except:
+                    pass
+                self.H=[]
                 if len(self.oldm) and  len(nowm):
                     self.oldm=np.array(self.oldm)
+                    id=0
                     for p in nowm:
                         x=p[0]
                         y=p[1]
@@ -210,24 +226,38 @@ class Human_Detection():
                         cv2.arrowedLine(frame2,(x_,y_), (int(r*math.cos(rad))+x_,int(r*math.sin(rad))+y_), (0,255,255), thickness=7,tipLength=0.5)
 
                         if self.getmap:
-                            r=math.pi/2
+                            center=[width//2,height//2]
+                            h = map.shape[0]
+                            w = map.shape[1]
+                            mapcenter=[w//2,h//2]
+                            s=5.5
+                            b=center[0]//s-mapcenter[0]
+                            bx=b+20
+                            by=b-2
+                            r=0
+                            x_=int((x_//s)-bx)
+                            y_=int((y_//s)-by)
+                            cv2.circle(map,(x_,y_), 1,255, 2, 4)
                             tx=int(x_*math.cos(r)-y_*math.sin(r))
                             ty=int(x_*math.sin(r)+y_*math.cos(r))
-                            Hx=tx/self.mapresol+self.index_ox
-                            Hy=ty/self.mapresol+self.index_oy
-                            self.publish_marker(Hx,Hy,rad)
+                            Hx=(tx-self.index_ox)*self.mapresol-0.2
+                            Hy=(ty-self.index_oy)*self.mapresol*-1-0.9
+                            print(tx,ty,Hx,Hy)
+                            self.publish_marker(Hx,Hy,rad*-1,id,1.0)
+                            id+=1
+                            self.H.append([id,Hx,Hy,rad*-1])
                     self.mlist.append([x,y])
                 if len(nowm):
                     self.oldm=nowm
 
-
-            # 読み込んだ画像の高さと幅を取得
-            height = frame.shape[0]
-            width = frame.shape[1]
             #表示
             cv2.imshow("thresh",cv2.resize(thresh,(width/2, height/2)))
             cv2.imshow("Frame",cv2.resize(frame,(width/2, height/2)))
             cv2.imshow("Frame2",cv2.resize(frame2,(width/2, height/2)))
+            cv2.imshow("map",map)
+            bridge = CvBridge()
+            msg = bridge.cv2_to_imgmsg(frame2, encoding="bgr8")
+            self.image_pub.publish(msg)
 
             key = cv2.waitKey(1) & 0xff
             if key == ord("s"):

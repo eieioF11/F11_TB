@@ -13,7 +13,7 @@ Panels:
         - /Local Map1/Polygon1
         - /Local Map1/Costmap1
         - /Local Map1/Planner1
-        - /Obstacle1
+        - /Marker2
       Splitter Ratio: 0.5
     Tree Height: 489
   - Class: rviz/Selection
@@ -491,6 +491,14 @@ Visualization Manager:
       top: 583
       update interval: 0.03999999910593033
       width: 128
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /Human_marker
+      Name: Marker
+      Namespaces:
+        my_name_space: true
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 48; 48; 48
