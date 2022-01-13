@@ -30,8 +30,8 @@ class Simple_path_follower():
         rospy.init_node('Simple_Path_Follower', anonymous=True)
         self.r = rospy.Rate(50)  # 50hz
 
-        self.target_speed_max = 0.6            #target speed [km/h]
-        self.target_speed_min = 0.3
+        self.target_speed_max = 2.0            #target speed [m/h]
+        self.target_speed_min = 0.1
         self.target_LookahedDist = 0.2      #Lookahed distance for Pure Pursuit[m]
 
         #first flg (for subscribe global path topic)
@@ -45,6 +45,7 @@ class Simple_path_follower():
         self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)#実機使用時
         #self.cmdvel_pub = rospy.Publisher("/F11Robo/diff_drive_controller/cmd_vel", Twist, queue_size=50)#シュミレーター使用時
         self.lookahed_pub = rospy.Publisher("/lookahed_marker", Marker, queue_size=50)
+        self.robo_pub = rospy.Publisher("/robo_marker", Marker, queue_size=50)
         self.value_pub1 = rospy.Publisher("CMD_Vx", Float32, queue_size=1)
         self.value_pub2 = rospy.Publisher("CMD_Az", Float32, queue_size=1)
         self.value_pub3 = rospy.Publisher("Curvature_val", Float32, queue_size=1)
@@ -79,6 +80,43 @@ class Simple_path_follower():
         if value<out_min:
             value=out_min
         return value
+
+    def publish_robo_marker(self,x,y,yaw_euler):
+
+        marker_data = Marker()
+        marker_data.header.frame_id = "map"
+        marker_data.header.stamp = rospy.Time.now()
+
+        marker_data.ns = "my_name_space"
+        marker_data.id = 0
+
+        marker_data.action = Marker.ADD
+
+        marker_data.pose.position.x = x
+        marker_data.pose.position.y = y
+        marker_data.pose.position.z = 0.0
+
+        temp_quaternion = tf.transformations.quaternion_from_euler(0,0,yaw_euler)
+
+        marker_data.pose.orientation.x = temp_quaternion[0]
+        marker_data.pose.orientation.y = temp_quaternion[1]
+        marker_data.pose.orientation.z = temp_quaternion[2]
+        marker_data.pose.orientation.w = temp_quaternion[3]
+
+        marker_data.color.r = 0.0
+        marker_data.color.g = 0.0
+        marker_data.color.b = 1.0
+        marker_data.color.a = 1.0
+
+        marker_data.scale.x = 0.5
+        marker_data.scale.y = 0.05
+        marker_data.scale.z = 0.05
+
+        marker_data.lifetime = rospy.Duration()
+        marker_data.type = 0
+
+        self.robo_pub.publish(marker_data)
+
 
     def publish_lookahed_marker(self,x,y,yaw_euler):
 
@@ -163,10 +201,11 @@ class Simple_path_follower():
                 else:
                     dist_sp_from_nearest_N=dist_sp_from_nearest
                 tld=math.fabs(self.target_LookahedDist-self.map(self.curvature_val[indx],0,np.amax(self.curvature_val),0,self.target_LookahedDist-0.1))
-                if self.cur_diff>=0.7:
-                    speed=math.fabs(self.target_LookahedDist-self.map(self.curvature_val[indx],0,np.amax(self.curvature_val),self.target_speed_min/3.6,self.target_speed_max/3.6))
-                else:
-                    speed=self.target_speed_max/3.6
+                #if self.cur_diff>=0.7:
+                #    speed=math.fabs(self.target_LookahedDist-self.map(self.curvature_val[indx],0,np.amax(self.curvature_val),self.target_speed_min,self.target_speed_max))
+                #else:
+                #    speed=self.target_speed_max
+                speed=self.target_speed_max
                 nowCV=self.curvature_val[indx]#debug
                 if tld>=self.target_LookahedDist:
                     tld=self.target_LookahedDist
@@ -185,7 +224,7 @@ class Simple_path_follower():
                 self.cflag=False
             else:
                 self.dist=math.sqrt((self.target_lookahed_x-self.current_x)**2+(self.target_lookahed_y-self.current_y)**2)
-                speed=self.map(self.dist,0,self.target_LookahedDist,self.target_speed_min/3.6,self.oldspeed)
+                speed=self.map(self.dist,0,self.target_LookahedDist,0,self.oldspeed)
             target_yaw=self.target_yaw
 
             yaw_diff = target_yaw - self.current_yaw_euler
@@ -216,10 +255,10 @@ class Simple_path_follower():
             if self.first and math.fabs(yaw_diff)<(math.pi/20):
                 self.first=False
             elif not self.first:
-                if speed>(self.target_speed_max/3.6):
-                    speed=self.target_speed_max/3.6
-                elif speed<(self.target_speed_min/3.6):
-                    speed=self.target_speed_min/3.6
+                if speed>(self.target_speed_max):
+                    speed=self.target_speed_max
+                #elif speed<(self.target_speed_min/3.6):
+                #    speed=self.target_speed_min/3.6
             else:
                 speed=0
 
@@ -230,8 +269,8 @@ class Simple_path_follower():
             if yaw_rate<=min_yawv:
                 yaw_rate=min_yawv
 
-            if self.Obstacle:
-                speed=0.0
+            #if self.Obstacle:
+            #    speed=0.0
 
             #Set Cmdvel
             cmd_vel = Twist()
@@ -248,6 +287,7 @@ class Simple_path_follower():
 
             #publish maker
             self.publish_lookahed_marker(target_lookahed_x,target_lookahed_y,target_yaw)
+            self.publish_robo_marker(self.current_x,self.current_y,self.current_yaw_euler)
             #print("cmd_vel_update")
             self.cur_diff=np.amax(self.curvature_val)-np.amin(self.curvature_val)#曲率最大最小の差
             #debug
