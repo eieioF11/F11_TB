@@ -38,3 +38,14 @@ roslaunch F11_TB navigation.launch map_file:=$HOME/map.yaml
 ```bash
 roslaunch F11_TB navi.launch map_file:=$HOME/map.yaml
 ```
+## 全方位カメラを使用した人の検出
+### 全方位カメラノードの起動
+```bash
+roslaunch F11_TB kodak.launch
+```
+### 人検出ノードの起動
+```bash
+rosrun F11_TB camera.py
+```
+![記録画像](/images/mem/0.jpg)
+![記録画像](/images/9.jpg)
