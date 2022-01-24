@@ -101,18 +101,34 @@ def a_star_pathplanner(start,goal,grid):
 	test_planner = a_star.PathPlanner(grid,False)
 	init,path=test_planner.a_star(start,goal)
 	path=np.vstack((init,path))#初期位置をpathに追加
-	xvals, yvals = bezier_curve(path, nTimes=1000)#ベジェ曲線で経路を滑らかにする
-	cpath=np.flipud(np.array(list(map(list, zip(xvals,yvals)))))#xvalsとyvalsの結合と反転
-	rospy.loginfo('path calculation completed')
-	#結果表示
-	print path
-	print cpath
-	plt.imshow(grid)
-	plt.plot(path[:,1],path[:,0])
-	plt.plot(cpath[:,1],cpath[:,0],color = "red")
-	plt.show()
-	return cpath
+	return path
 
+def pathcorrection(path,map,w=1,h=2):
+	path=np.array(path)
+	hx,hy=np.where(map==h)
+	hp=np.flipud(np.array(list(zip(hx,hy))))#人の通る場所のリスト
+
+	s=path[0]#スタート
+	e=path[-1]#ゴール
+	for j in range(len(path)):
+		d=[]#距離のリスト
+		minh=[]
+		mind=0
+		for i in hp:
+			dir=np.linalg.norm(path[j]-i)#人のよく通る場所の点と経路との距離
+			d.append(dir)
+			if dir == min(d):#一番距離が近いとき
+				minh=i
+				mind=dir
+		print(path[j],minh,d)
+		if mind<=10.0:#最小距離が10.0以下のとき
+			if np.all(path[j]==s):#スタート座標のときの例外処理
+				pass
+			elif np.all(path[j]==e):#ゴール座標のときの例外処理
+				pass
+			else:
+				path[j]=minh
+	return path
 
 import pandas as pd
 import glob
@@ -159,6 +175,7 @@ class Map(object):
 			row,col = map.shape
 			tem = np.zeros((row,col))
 			grid = np.zeros((row,col))
+			grid_h = np.zeros((row,col))
 			for i in range(row):
 				for j in range(col):
 					if(map[i,j]==-1):
@@ -183,6 +200,7 @@ class Map(object):
 					grid[i,j]=0
 					if tem[i,j]>0 and tem[i,j]!=255:
 						grid[i,j]=1
+						grid_h[i,j]=1
 
 			print "resol",mapmsg.info.resolution,"h",mapmsg.info.height,"w",mapmsg.info.width
 			print "orizin x:",mapmsg.info.origin.position.x,"y:",mapmsg.info.origin.position.y
@@ -197,15 +215,15 @@ class Map(object):
 				x=int(i[0]*math.cos(r)-i[1]*math.sin(r))
 				y=int(i[0]*math.sin(r)+i[1]*math.cos(r))
 				try :
-					if tem[y,x]==0:
-						tem[y,x]=200
+					if grid_h[y,x]==0:
+						grid_h[y,x]=2
 				except:
 					pass
 		except Exception,e:
 			print e
 			rospy.loginfo('convert rgb image error')
 		tem[int(-1*ox/mapmsg.info.resolution),int(-1*oy/mapmsg.info.resolution)]=-255
-		plt.imshow(tem)
+		plt.imshow(grid_h)
 		plt.show()
 		global readgoal
 		rospy.loginfo('Map conversion completed')
@@ -226,8 +244,20 @@ class Map(object):
 				if not grid[goal[1],goal[0]] and not grid[start[1],start[0]]:
 					#経路計算
 					path=a_star_pathplanner(start,goal,grid.tolist())
+					#path=pathcorrection(path,grid_h,w=1,h=2)
+					xvals, yvals = bezier_curve(path, nTimes=1000)#ベジェ曲線で経路を滑らかにする
+					#cpath=np.flipud(np.array(list(map(list, zip(xvals,yvals)))))#xvalsとyvalsの結合と反転
+					cpath=np.flipud(np.array(list(zip(xvals,yvals))))#xvalsとyvalsの結合と反転
+					rospy.loginfo('path calculation completed')
+					#結果表示
+					print path
+					print cpath
+					plt.imshow(grid_h)
+					plt.plot(path[:,1],path[:,0])
+					plt.plot(cpath[:,1],cpath[:,0],color = "red")
+					plt.show()
 					#経路配信
-					path_generation(path,index_ox,index_oy,mapmsg.info.resolution)
+					path_generation(cpath,index_ox,index_oy,mapmsg.info.resolution)
 				else:
 					#Error
 					if grid[goal[1],goal[0]]:
