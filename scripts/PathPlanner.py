@@ -244,7 +244,7 @@ class Map(object):
 				if not grid[goal[1],goal[0]] and not grid[start[1],start[0]]:
 					#経路計算
 					path=a_star_pathplanner(start,goal,grid.tolist())
-					#path=pathcorrection(path,grid_h,w=1,h=2)
+					path=pathcorrection(path,grid_h,w=1,h=2)
 					xvals, yvals = bezier_curve(path, nTimes=1000)#ベジェ曲線で経路を滑らかにする
 					#cpath=np.flipud(np.array(list(map(list, zip(xvals,yvals)))))#xvalsとyvalsの結合と反転
 					cpath=np.flipud(np.array(list(zip(xvals,yvals))))#xvalsとyvalsの結合と反転
