@@ -116,7 +116,7 @@ class LocalMap():
         dst = cv2.resize(dst , (int(width * multiple), int(height * multiple)))
         dst_ = cv2.resize(dst_ , (int(width * multiple), int(height * multiple)))
 
-        cv2.imshow("mask",mask)
-        cv2.imshow("Local map",dst)
-        cv2.imshow("Local map_",dst_)
+        #cv2.imshow("mask",mask)
+        #cv2.imshow("Local map",dst)
+        #cv2.imshow("Local map_",dst_)
         cv2.waitKey(10)

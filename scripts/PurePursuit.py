@@ -13,9 +13,10 @@ from visualization_msgs.msg import Marker
 from nav_msgs.msg import Path, Odometry
 
 from jsk_rviz_plugins.msg import *
-from std_msgs.msg import ColorRGBA, Float32
+from std_msgs.msg import ColorRGBA, Float32, Int32
 
 from localmap import *
+from safezone import *
 
 #######################################
 # Simple Path follower (Pure Pursuit) #
@@ -33,6 +34,8 @@ class Simple_path_follower():
         self.target_speed_max = 2.0            #target speed [m/h]
         self.target_speed_min = 0.1
         self.target_LookahedDist = 0.2      #Lookahed distance for Pure Pursuit[m]
+
+        self.SZ=SafeZone(5.0,4.5)
 
         #first flg (for subscribe global path topic)
         self.first=False
@@ -53,6 +56,7 @@ class Simple_path_follower():
 
         #initialize subscriber
         self.path_sub = rospy.Subscriber("/path", Path, self.cb_get_path_topic_subscriber)
+        self.odom_sub = rospy.Subscriber('human',Int32, self.human)
         self.tfBuffer = tf2_ros.Buffer()
         self.listener = tf2_ros.TransformListener(self.tfBuffer)
 
@@ -80,6 +84,10 @@ class Simple_path_follower():
         if value<out_min:
             value=out_min
         return value
+
+    def human(self,value):
+        print(value)
+        self.SZ.safezone(self.current_x,self.current_y)
 
     def publish_robo_marker(self,x,y,yaw_euler):
 
