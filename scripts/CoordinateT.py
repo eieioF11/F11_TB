@@ -83,8 +83,8 @@ def process_image(msg):
         mapcenter=[w//2,h//2]
         s=5.5
         b=center[0]//s-mapcenter[0]
-        bx=b+10
-        by=b-2
+        bx=b+13
+        by=b-5
         print mapcenter,b
         for i in mlist:
             d=int(get_distance(center,(i[0],i[1])))

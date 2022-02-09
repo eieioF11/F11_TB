@@ -8,7 +8,7 @@ def main():
     df = pd.read_csv("15.csv")
     print(df.head(10))
     #fig.add_subplot(121)
-    df = df[(df["x"]<172) | (df["x"]>184) | (df["y"]<188) | (df["y"]>197)]
+    df = df[(df["x"]<160) | (df["x"]>184) | (df["y"]<188) | (df["y"]>200)]
     plt.plot(df["y"],df["x"],"*",c="red")
     df=df[df.duplicated()]#重複したデータの抽出
     #df=df[df.duplicated()]
