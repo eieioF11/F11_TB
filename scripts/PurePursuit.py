@@ -18,6 +18,14 @@ from std_msgs.msg import ColorRGBA, Float32, Int32
 from localmap import *
 from safezone import *
 
+from enum import Enum
+
+class mode(Enum):
+    NORISK  = 0
+    SITTING = 1
+    STAND   = 2
+    WALK    = 3
+
 #######################################
 # Simple Path follower (Pure Pursuit) #
 #######################################
@@ -31,11 +39,12 @@ class Simple_path_follower():
         rospy.init_node('Simple_Path_Follower', anonymous=True)
         self.r = rospy.Rate(50)  # 50hz
 
-        self.target_speed_max = 2.0            #target speed [m/h]
-        self.target_speed_min = 0.1
-        self.target_LookahedDist = 0.2      #Lookahed distance for Pure Pursuit[m]
-
-        self.SZ=SafeZone(5.0,4.5)
+        self.target_speed_max = 0.12    #target speed [m/h]
+        self.target_speed_min = 0.04
+        self.target_LookahedDist = 0.3 #Lookahed distance for Pure Pursuit[m]
+        self.maxyawv = 2.0             #[rad/s]
+        r=6.00
+        self.SZ=SafeZone(r,r-0.1)
 
         #first flg (for subscribe global path topic)
         self.first=False
@@ -45,7 +54,7 @@ class Simple_path_follower():
         self.last_indx = 0
 
         #initialize publisher
-        self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=50)#実機使用時
+        self.cmdvel_pub = rospy.Publisher("/cmd_vel", Twist, queue_size=5)#実機使用時
         #self.cmdvel_pub = rospy.Publisher("/F11Robo/diff_drive_controller/cmd_vel", Twist, queue_size=50)#シュミレーター使用時
         self.lookahed_pub = rospy.Publisher("/lookahed_marker", Marker, queue_size=50)
         self.robo_pub = rospy.Publisher("/robo_marker", Marker, queue_size=50)
@@ -53,6 +62,7 @@ class Simple_path_follower():
         self.value_pub2 = rospy.Publisher("CMD_Az", Float32, queue_size=1)
         self.value_pub3 = rospy.Publisher("Curvature_val", Float32, queue_size=1)
         self.value_pub4 = rospy.Publisher("range_ahead", Float32, queue_size=1)
+        self.menu_pub = rospy.Publisher("risk_menu", OverlayMenu, queue_size=1)
 
         #initialize subscriber
         self.path_sub = rospy.Subscriber("/path", Path, self.cb_get_path_topic_subscriber)
@@ -77,6 +87,9 @@ class Simple_path_follower():
         self.Lmap=LocalMap()
         self.Obstacle=True#障害物フラグ
 
+        self.safezone=[]
+        self.MODE = mode.NORISK
+
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
         if value>out_max:
@@ -87,7 +100,18 @@ class Simple_path_follower():
 
     def human(self,value):
         print(value)
-        self.SZ.safezone(self.current_x,self.current_y)
+        if value.data==0:
+            self.MODE=mode.NORISK
+            self.first=True
+        elif value.data==1:
+            self.MODE=mode.SITTING
+        elif value.data==2:
+            self.MODE=mode.STAND
+        elif value.data==3:
+            self.MODE=mode.WALK
+            self.first=True
+            self.safezone=self.SZ.safezone(self.current_x,self.current_y)
+
 
     def publish_robo_marker(self,x,y,yaw_euler):
 
@@ -171,6 +195,30 @@ class Simple_path_follower():
         nowCV=0
         yaw_rate = 0.0
         self.Obstacle=self.Lmap.obstacle()
+        #if self.MODE==mode.WALK:
+        #    if len(self.safezone)>1:
+        #        target_lookahed_x=self.safezone[0]
+        #        target_lookahed_y=self.safezone[1]
+        #        #print(self.safezone)
+        #        target_yaw = math.atan2(target_lookahed_y-self.current_y,target_lookahed_x-self.current_x)
+        #        self.publish_lookahed_marker(target_lookahed_x,target_lookahed_y,target_yaw)
+        menu = OverlayMenu()
+        menu.title = "Risk Level"
+        #NORISK  = 0
+        #SITTING = 1
+        #STAND   = 2
+        #WALK    = 3
+        menu.menus = ["NORISK", "SITTING", "STAND", "WALK"]
+        menu.current_index = self.MODE.value
+        menu.fg_color.r = 1.0
+        menu.fg_color.g = 1.0
+        menu.fg_color.b = 1.0
+        menu.fg_color.a = 1.0
+        menu.bg_color.r = 0.0
+        menu.bg_color.g = 0.0
+        menu.bg_color.b = 0.0
+        menu.bg_color.a = 1.0
+        self.menu_pub.publish(menu)
         if self.path_first_flg == True and self.odom_first_flg == True:
 
             dist_from_current_pos_np = np.sqrt(np.power((self.path_x_np-self.current_x),2) + np.power((self.path_y_np-self.current_y),2))
@@ -225,7 +273,6 @@ class Simple_path_follower():
                     break
             target_lookahed_x=self.target_lookahed_x
             target_lookahed_y=self.target_lookahed_y
-            #calculate target yaw rate
             if self.cflag:
                 self.target_yaw = math.atan2(target_lookahed_y-self.current_y,target_lookahed_x-self.current_x)
                 self.oldspeed=speed
@@ -235,6 +282,20 @@ class Simple_path_follower():
                 speed=self.map(self.dist,0,self.target_LookahedDist,0,self.oldspeed)
             target_yaw=self.target_yaw
 
+            if self.MODE==mode.WALK:
+                if len(self.safezone)>1:
+                    speed=0
+                    target_lookahed_x=self.safezone[0]
+                    target_lookahed_y=self.safezone[1]
+                    target_yaw = math.atan2(target_lookahed_y-self.current_y,target_lookahed_x-self.current_x)
+                    self.dist=math.sqrt((target_lookahed_x-self.current_x)**2+(target_lookahed_y-self.current_y)**2)
+                    speed=self.map(self.dist,0,self.target_LookahedDist,0,self.oldspeed)*2
+                    if self.dist<0.04:
+                        speed=0.0
+                else:
+                    self.first=True
+                    speed=0.0
+
             yaw_diff = target_yaw - self.current_yaw_euler
 
             if yaw_diff > math.pi:
@@ -243,24 +304,40 @@ class Simple_path_follower():
                 yaw_diff = 2*math.pi+yaw_diff
 
             sample_sec = dist_sp_from_nearest/(speed)
+            #sample_sec = 0.35
             if sample_sec != 0.0:
-                yaw_rate = math.fabs(yaw_diff)/sample_sec
+                yaw_rate = yaw_diff/sample_sec
             else:
                 yaw_rate = 0.0
 
+            #if sample_sec != 0.0:
+            #    yaw_rate = math.fabs(yaw_diff)/sample_sec
+            #else:
+            #    yaw_rate = 0.0
+
             # check vehicle orientation and target yaw
-            if math.fabs(target_yaw - self.current_yaw_euler) < math.pi:
-                if (target_yaw) < (self.current_yaw_euler):
-                    yaw_rate = yaw_rate * (-1.0)
-            elif math.fabs(target_yaw - self.current_yaw_euler) > math.pi:
-                if (target_yaw) > (self.current_yaw_euler):
-                    yaw_rate = yaw_rate * (-1.0)
+            #if math.fabs(target_yaw - self.current_yaw_euler) < math.pi:
+            #    if (target_yaw) < (self.current_yaw_euler):
+            #        yaw_rate = yaw_rate * (-1.0)
+            #elif math.fabs(target_yaw - self.current_yaw_euler) > math.pi:
+            #    if (target_yaw) > (self.current_yaw_euler):
+            #        yaw_rate = yaw_rate * (-1.0)
+            if self.MODE==mode.WALK:
+                yaw_rate*=4.0
+            else:
+                yaw_rate*=1.7
+            max_yawv=self.maxyawv
+            if yaw_rate>=max_yawv:
+                yaw_rate=max_yawv
+            min_yawv=-self.maxyawv
+            if yaw_rate<=min_yawv:
+                yaw_rate=min_yawv
 
-
-            #print(yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,self.direction(target_yaw,self.current_yaw_euler))
+            if self.MODE==mode.STAND:
+                speed=self.target_speed_min
 
             #Set Cmdvel
-            if self.first and math.fabs(yaw_diff)<(math.pi/20):
+            if self.first and math.fabs(yaw_diff)<(math.pi/30):
                 self.first=False
             elif not self.first:
                 if speed>(self.target_speed_max):
@@ -268,18 +345,11 @@ class Simple_path_follower():
                 #elif speed<(self.target_speed_min/3.6):
                 #    speed=self.target_speed_min/3.6
             else:
-                speed=0
+                speed=0.0
 
-            max_yawv=2.6
-            if yaw_rate>=max_yawv:
-                yaw_rate=max_yawv
-            min_yawv=-2.6
-            if yaw_rate<=min_yawv:
-                yaw_rate=min_yawv
 
             #if self.Obstacle:
             #    speed=0.0
-
             #Set Cmdvel
             cmd_vel = Twist()
             cmd_vel.linear.x = speed    #[m/s]
@@ -291,7 +361,7 @@ class Simple_path_follower():
             self.cmdvel_pub.publish(cmd_vel)
 
             if not self.Obstacle:
-                rospy.loginfo(str(self.first)+","+str(yaw_diff*180/math.pi)+","+str(target_yaw*180/math.pi)+","+str(self.current_yaw_euler*180/math.pi)+",yaw_rate:"+str(yaw_rate)+",Vx:"+str(speed)+","+"dist:"+str(self.dist))
+                rospy.loginfo("{},{:.3f}[deg],{:.3f}[deg],{:.3f}[deg],yaw_rate:{:.3f},Vx:{:.3f},dist:{:.3f}".format(self.first,yaw_diff*180/math.pi,target_yaw*180/math.pi,self.current_yaw_euler*180/math.pi,yaw_rate,speed,self.dist))
 
             #publish maker
             self.publish_lookahed_marker(target_lookahed_x,target_lookahed_y,target_yaw)

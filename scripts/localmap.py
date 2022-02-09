@@ -42,6 +42,10 @@ class LocalMap():
 
     def scan_callback(self,msg):
         self.Range_ahead = (msg.ranges[0]+msg.ranges[1]+msg.ranges[len(msg.ranges)-2]+msg.ranges[len(msg.ranges)-1])/4#ロボットの真正面にある障害物までの距離
+        #if 0.13 < self.Range_ahead and self.Range_ahead <0.18:
+        #    self.Obstacle=True
+        #else:
+        #    self.Obstacle=False
         self.Obstacle=False
         dangle=(msg.angle_max-msg.angle_min)/len(msg.ranges)
         #print(msg.angle_max,msg.angle_min,dangle)
@@ -52,6 +56,7 @@ class LocalMap():
         #if self.t0.stand_by(0.5) or len(self.obstacles)<=1:
         self.obstacles_pre=self.obstacles
         self.obstacles=np.zeros((1,2))
+        d=0
         for i in msg.ranges:
             #localmap作成
             x=i*math.cos(angle)
@@ -66,9 +71,12 @@ class LocalMap():
                     self.localmap[x,y]=255
             angle+=dangle
             #障害物検知
-            if 0.13 < i and i <0.24:
-                self.Obstacle=True
-                rospy.logwarn("Obstacle detection "+str(i)+"[m] ahead")#正面にある障害物までの距離を表示
+            if 0.13 < i and i <0.2:
+                d+=1
+                #rospy.logwarn("Obstacle detection "+str(i)+"[m]")#正面にある障害物までの距離を表示
+        if d>=4:
+            self.Obstacle=True
+            rospy.logwarn("Obstacle detection "+str(i)+"[m] /"+str(d))
         #transformation_history, aligned_points = icp(self.obstacles_pre,self.obstacles, verbose=False)
         '''
         plt.xlim(-self.maprange,self.maprange)

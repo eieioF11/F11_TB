@@ -17,84 +17,6 @@ from geometry_msgs.msg import PoseWithCovarianceStamped, Quaternion
 import tf2_ros
 import matplotlib.pyplot as plt
 
-#ROS初期設定
-#rospy.init_node('PathPlanner')
-#path_pub = rospy.Publisher('/path', Path, queue_size=10)
-#goal_sub = rospy.Subscriber('/move_base_simple/goal',PoseStamped, goal_cb)
-#tfBuffer = tf2_ros.Buffer()
-#listener = tf2_ros.TransformListener(tfBuffer)
-
-#path generation
-#def path_generation(sPath,ox,oy,resolution):#ROSにpath形式のデータを配信
-	#Initialize odometry header
-#	global path_pub
-#	global head
-#	path = Path()
-#	path_header = Header()
-#	path_header.seq = 0
-#	path_header.stamp = rospy.Time.now()
-#	path_header.frame_id = "map"
-
-#	for i in range(0,len(sPath)):
-#		temp_pose = PoseStamped()
-#		temp_pose.pose.position.x = (sPath[i][0]-ox)*resolution
-#		temp_pose.pose.position.y = (sPath[i][1]-oy)*resolution
-#		temp_pose.pose.position.z = 0
-#		temp_pose.header = path_header
-#		temp_pose.header.seq = i
-#		path.poses.append(temp_pose)
-#	#print path.poses
-#	path.header = path_header
-#	path_pub.publish(path)
-#	rospy.loginfo('End path generation')
-
-
-#path planner
-import a_star
-from scipy.special import comb
-
-def bernstein_poly(i, n, t):
-    """
-     The Bernstein polynomial of n, i as a function of t
-    """
-
-    return comb(n, i) * ( t**(n-i) ) * (1 - t)**i
-
-
-def bezier_curve(points, nTimes=1000):
-    """
-       Given a set of control points, return the
-       bezier curve defined by the control points.
-
-       points should be a list of lists, or list of tuples
-       such as [ [1,1], 
-                 [2,3], 
-                 [4,5], ..[Xn, Yn] ]
-        nTimes is the number of time steps, defaults to 1000
-
-        See http://processingjs.nihongoresources.com/bezierinfo/
-    """
-
-    nPoints = len(points)
-    xPoints = np.array([p[0] for p in points])
-    yPoints = np.array([p[1] for p in points])
-
-    t = np.linspace(0.0, 1.0, nTimes)
-
-    polynomial_array = np.array([ bernstein_poly(i, nPoints-1, t) for i in range(0, nPoints)   ])
-
-    xvals = np.dot(xPoints, polynomial_array)
-    yvals = np.dot(yPoints, polynomial_array)
-
-    return xvals, yvals
-
-def a_star_pathplanner(start,goal,grid):
-	test_planner = a_star.PathPlanner(grid,False)
-	init,path=test_planner.a_star(start,goal)
-	path=np.vstack((init,path))#初期位置をpathに追加
-	return path
-
-
 import pandas as pd
 import glob
 import os
@@ -125,6 +47,7 @@ class SafeZone(object):
 		return [(p[0]-ox)*resolution,(p[1]-oy)*resolution]
 
 	def safezone_search(self,inix,iniy,r1,r2,wp,hp):
+			#rr=0.1
 		#try:
 			print(len(wp))
 			print(len(hp))
@@ -162,19 +85,21 @@ class SafeZone(object):
 
 			p1_mem=[]
 			#障害物と近い場所を削除
-			for j in range(len(p1)):
-				d=[]#距離のリスト
-				mind=0
-				for i in wp:
-					dir=np.linalg.norm(p1[j]-i)#障害物との距離
-					d.append(dir)
-					if dir == min(d):#一番距離が近いとき
-						mind=dir
-				if mind>r2:
-					p1_mem.append(p1[j])
-				#print(p1[j],mind)
-			if len(p1_mem)>1:
-				p1=np.array(p1_mem)
+			#for j in range(len(p1)):
+			#	d=[]#距離のリスト
+			#	mind=0
+			#	for i in wp:
+			#		dir=np.linalg.norm(p1[j]-i)#障害物との距離
+			#		d.append(dir)
+			#		if dir == min(d):#一番距離が近いとき
+			#			mind=dir
+			#	#if mind>r2:
+			#	#	p1_mem.append(p1[j])
+			#	if mind>rr:
+			#		p1_mem.append(p1[j])
+			#	#print(p1[j],mind)
+			#if len(p1_mem)>1:
+			#	p1=np.array(p1_mem)
 
 			#safezoneの探索
 			safezone=[]
@@ -190,17 +115,22 @@ class SafeZone(object):
 					safezone=p1[j]
 					break
 				#print(p1[j],mind)
-			plt.imshow(self.maph)
-			plt.plot(iniy,inix,"o",c="b")
-			plt.plot(p1_o[:,1],p1_o[:,0],"+",c="r")
-			plt.plot(p1[:,1],p1[:,0],"+",c="c")
-			if len(hp)>1:
-				plt.plot(hp[:,1],hp[:,0],"+",c="r")
-			if len(wp)>1:
-				plt.plot(wp[:,1],wp[:,0],"+",c="r")
-			if len(safezone)>1:
-				plt.plot(safezone[1],safezone[0],"*",markersize=10,c="greenyellow")
-			plt.show()
+			#if len(safezone)>1:
+			#	#draw_circle = plt.Circle((safezone[1],safezone[0]),rr,fill=False)
+			#	#plt.gcf().gca().add_artist(draw_circle)
+			#	draw_circle = plt.Circle((safezone[1],safezone[0]),r2,fill=False)
+			#	plt.gcf().gca().add_artist(draw_circle)
+			#plt.imshow(self.maph)
+			#plt.plot(iniy,inix,"o",c="b")
+			#plt.plot(p1_o[:,1],p1_o[:,0],"+",c="r")
+			#plt.plot(p1[:,1],p1[:,0],"+",c="c")
+			#if len(hp)>1:
+			#	plt.plot(hp[:,1],hp[:,0],"+",c="r")
+			#if len(wp)>1:
+			#	plt.plot(wp[:,1],wp[:,0],"+",c="r")
+			#if len(safezone)>1:
+			#	plt.plot(safezone[1],safezone[0],"*",markersize=10,c="greenyellow")
+			#plt.show()
 			return safezone
 		#except:
 		#	return []
@@ -221,7 +151,8 @@ class SafeZone(object):
 			#plt.plot(sz[1],sz[0],"*",c="greenyellow")
 			#plt.plot(iniy,inix,"o",c="b")
 			#plt.show()
-			szone=self.p_trans(sz,self.ox,self.oy,self.resolution)
+			print(sz)
+			szone=self.p_trans(sz,self.index_ox,self.index_oy,self.resolution)
 		else:
 			rospy.logerr('Safezone not found')
 		return szone
@@ -252,17 +183,17 @@ class SafeZone(object):
 					else:
 						tem[j,i]=map[i,j]
 			#cost map作成
-			n=3
-			rn=3+2*(n-1)
-			print rn
-			for i in range(col):
-				for j in range(row):
-					if tem[i,j]==100:
-						for k in range(rn):
-							for l in range(rn):
-								val=tem[i-n+k,j-n+l]
-								if val==0:
-									tem[i-n+k,j-n+l]=200
+			#n=1
+			#rn=3+2*(n-1)
+			#print rn
+			#for i in range(col):
+			#	for j in range(row):
+			#		if tem[i,j]==100:
+			#			for k in range(rn):
+			#				for l in range(rn):
+			#					val=tem[i-n+k,j-n+l]
+			#					if val==0:
+			#						tem[i-n+k,j-n+l]=200
 			#経路計算用のマップ作成
 			for i in range(col):
 				for j in range(row):
