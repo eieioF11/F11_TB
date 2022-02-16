@@ -143,6 +143,7 @@ def load_csv():
     n=0
     if len(fname):
         n=max(fname)
+	print(str(n)+".csv")
     df = pd.read_csv(fpath+str(n)+".csv")
     return df.values
 

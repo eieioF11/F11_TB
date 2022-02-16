@@ -14,6 +14,11 @@ else:
 	import Tkinter as tk
 	import tkMessageBox as messagebox
 
+#No Risk
+#Low Risk
+#Middle Risk
+#High Risk
+
 class risktrans():
 	def __init__(self,tki):
 		self.tki=tki
@@ -24,7 +29,8 @@ class risktrans():
 		label1.pack(side="top") # 場所を指定　（top, bottom, left, or right）
 	def send(self,value):
 		#テキスト
-		risk=["NORISK","SITTING","STAND","WALK"]
+		#risk=["NORISK","SITTING","STAND","WALK"]
+		risk=["No Risk","Low Risk","Middle Risk","High Risk"]
 		self.text.set(risk[value])
 		#messagebox.showinfo("info", "送信しました")
 		self.rt_pub.publish(value)
@@ -46,13 +52,13 @@ def main():
 	# ボタンの作成
 	X=50
 	Y=30
-	btn1 = tk.Button(tki, text='NORISK', command = rt.bt1_click)
+	btn1 = tk.Button(tki, text='No Risk', command = rt.bt1_click)
 	btn1.place(x=X, y=Y) #ボタンを配置する位置の設定
-	btn2 = tk.Button(tki, text='SITTING', command = rt.bt2_click)
+	btn2 = tk.Button(tki, text='Low Risk', command = rt.bt2_click)
 	btn2.place(x=X, y=Y+40) #ボタンを配置する位置の設定
-	btn3 = tk.Button(tki, text='STAND', command = rt.bt3_click)
+	btn3 = tk.Button(tki, text='Middle Risk', command = rt.bt3_click)
 	btn3.place(x=X, y=Y+40*2) #ボタンを配置する位置の設定
-	btn4 = tk.Button(tki, text='WALK', command = rt.bt4_click)
+	btn4 = tk.Button(tki, text='High Risk', command = rt.bt4_click)
 	btn4.place(x=X, y=Y+40*3) #ボタンを配置する位置の設定
 	try:
 		rospy.loginfo('Risk level transmission is Started...')

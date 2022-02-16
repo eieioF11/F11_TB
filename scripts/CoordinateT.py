@@ -89,7 +89,7 @@ def process_image(msg):
         for i in mlist:
             d=int(get_distance(center,(i[0],i[1])))
             dir=center-i
-            k=50
+            k=40
             corr=k*(dir/d)
             corr[1]=3.2*corr[1]+70
             #print corr

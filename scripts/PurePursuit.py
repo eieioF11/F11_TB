@@ -20,11 +20,17 @@ from safezone import *
 
 from enum import Enum
 
-class mode(Enum):
-    NORISK  = 0
-    SITTING = 1
-    STAND   = 2
-    WALK    = 3
+#class mode(Enum):
+#    NORISK  = 0
+#    SITTING = 1
+#    STAND   = 2
+#    WALK    = 3
+
+class risk(Enum):
+    NORISK     = 0
+    LOWRISK    = 1#Low Risk
+    MIDDLERISK = 2#Middle Risk
+    HIGHRISK   = 3#High Risk
 
 #######################################
 # Simple Path follower (Pure Pursuit) #
@@ -88,7 +94,8 @@ class Simple_path_follower():
         self.Obstacle=True#障害物フラグ
 
         self.safezone=[]
-        self.MODE = mode.NORISK
+        #self.MODE = mode.NORISK
+        self.RISK=risk.NORISK
 
     def map(self,x,in_min,in_max,out_min,out_max):
         value=(x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min
@@ -101,14 +108,18 @@ class Simple_path_follower():
     def human(self,value):
         print(value)
         if value.data==0:
-            self.MODE=mode.NORISK
+            #self.MODE=mode.NORISK
+            self.RISK=risk.NORISK
             self.first=True
         elif value.data==1:
-            self.MODE=mode.SITTING
+            #self.MODE=mode.SITTING
+            self.RISK=risk.LOWRISK
         elif value.data==2:
-            self.MODE=mode.STAND
+            #self.MODE=mode.STAND
+            self.RISK=risk.MIDDLERISK
         elif value.data==3:
-            self.MODE=mode.WALK
+            #self.MODE=mode.WALK
+            self.RISK=risk.HIGHRISK
             self.first=True
             self.safezone=self.SZ.safezone(self.current_x,self.current_y)
 
@@ -204,12 +215,13 @@ class Simple_path_follower():
         #        self.publish_lookahed_marker(target_lookahed_x,target_lookahed_y,target_yaw)
         menu = OverlayMenu()
         menu.title = "Risk Level"
-        #NORISK  = 0
-        #SITTING = 1
-        #STAND   = 2
-        #WALK    = 3
-        menu.menus = ["NORISK", "SITTING", "STAND", "WALK"]
-        menu.current_index = self.MODE.value
+        #No Risk
+        #Low Risk
+        #Middle Risk
+        #High Risk
+
+        menu.menus = ["No Risk", "Low Risk", "Middle Risk", "High Risk"]
+        menu.current_index = self.RISK.value
         menu.fg_color.r = 1.0
         menu.fg_color.g = 1.0
         menu.fg_color.b = 1.0
@@ -282,7 +294,7 @@ class Simple_path_follower():
                 speed=self.map(self.dist,0,self.target_LookahedDist,0,self.oldspeed)
             target_yaw=self.target_yaw
 
-            if self.MODE==mode.WALK:
+            if self.RISK==risk.HIGHRISK:
                 if len(self.safezone)>1:
                     speed=0
                     target_lookahed_x=self.safezone[0]
@@ -322,7 +334,7 @@ class Simple_path_follower():
             #elif math.fabs(target_yaw - self.current_yaw_euler) > math.pi:
             #    if (target_yaw) > (self.current_yaw_euler):
             #        yaw_rate = yaw_rate * (-1.0)
-            if self.MODE==mode.WALK:
+            if self.RISK==risk.HIGHRISK:
                 yaw_rate*=4.0
             else:
                 yaw_rate*=1.7
@@ -333,7 +345,7 @@ class Simple_path_follower():
             if yaw_rate<=min_yawv:
                 yaw_rate=min_yawv
 
-            if self.MODE==mode.STAND:
+            if self.RISK==risk.MIDDLERISK:
                 speed=self.target_speed_min
 
             #Set Cmdvel

@@ -265,9 +265,11 @@ class Human_Detection():
                 self.save_csv(self.mlist)
                 print("save image")
                 self.save_image(frame)
+                #self.save_image(thresh)
             elif key == ord("p"):
                 print("save image")
                 self.save_image_mem(frame2)
+                self.save_image_mem(thresh)
             elif key == ord("r"):
                 self.mlist=[]
         except Exception as err:
