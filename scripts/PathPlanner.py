@@ -252,13 +252,14 @@ class Map(object):
 					rospy.loginfo('path calculation completed')
 					#結果表示
 					print path
-					print cpath
+					#print cpath
 					plt.imshow(grid_h)
+					#plt.plot(path[:,1],path[:,0],"o",color = "red")
 					plt.plot(path[:,1],path[:,0])
 					plt.plot(cpath[:,1],cpath[:,0],color = "red")
 					plt.show()
 					#経路配信
-					path_generation(cpath,index_ox,index_oy,mapmsg.info.resolution)
+					#path_generation(cpath,index_ox,index_oy,mapmsg.info.resolution)
 				else:
 					#Error
 					if grid[goal[1],goal[0]]:

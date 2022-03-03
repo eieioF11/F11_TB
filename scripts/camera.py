@@ -154,7 +154,8 @@ class Human_Detection():
             #二値化
             thresh = cv2.threshold(frameDelta, 3, 255, cv2.THRESH_BINARY)[1]
             #中央値フィルタ
-            ksize=21
+            #ksize=21
+            ksize=7
             thresh = cv2.medianBlur(thresh,ksize)
             #輪郭検出
             image, contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
